@@ -1,0 +1,23 @@
+# PlatformIO — Build-Artefakte und heruntergeladene Libraries
+.pio/
+release/
+
+# Editor / Tooling (maschinenspezifisch)
+.vscode/
+.cache/
+.clangd
+
+# Von pio run -t compiledb generiert (4 MB, maschinenspezifisch)
+compile_commands.json
+
+# Lokale KI-/Agenten-Konfiguration
+.codex
+CLAUDE.md
+CLAUDE.md.*
+.claude/
+AGENTS.md
+
+# Lokale Notizen / temporäre Dateien
+ToDo.txt
+context-log.md
+gotchas.md

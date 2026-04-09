@@ -1,0 +1,809 @@
+/*
+  Dottie – The Matrix Clock
+  ESP8266 NTP Dot-Matrix Clock (MAX7219 / MD_MAX72xx)
+
+  Versionshistorie: siehe CHANGELOG.md
+
+  NOTE: GPIO16 (D0) needs external pull-up (10k to 3V3) for reliable reset detection.
+  NOTE: Für OTA wird die ArduinoOTA-Library benötigt (im ESP8266 Board Package enthalten).
+*/
+
+#include <Arduino.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
+#include <ArduinoOTA.h>
+#include <DNSServer.h>
+#include <WiFiUdp.h>
+#include <Ticker.h>
+#include <time.h>
+#include <sys/time.h>
+#include <MD_MAX72xx.h>
+#include <SPI.h>
+#include <LittleFS.h>
+
+extern "C" {
+  #include "lwip/dns.h"
+  #include "lwip/err.h"
+  #include "lwip/ip_addr.h"
+  #include "lwip/ip4_addr.h"
+}
+
+// ============================================================
+// Firmware-Version
+// ============================================================
+static const char FW_VERSION[] PROGMEM = "Dottie 1.4.7";
+
+// ============================================================
+// Display-Konfiguration
+// ============================================================
+#define HARDWARE_TYPE MD_MAX72XX::FC16_HW
+#define MAX_DEVICES   16
+#define CS_PIN        D2
+MD_MAX72XX mx(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
+
+#include "config.h"
+
+Config     cfg;
+WiFiManager wifiMgr;
+
+// ============================================================
+// NTP-Sync-Protokoll (Ringpuffer)
+// ============================================================
+static NtpLogEntry ntpLog[NTP_LOG_ENTRIES];
+static uint8_t     ntpLogHead = 0;
+static uint8_t     ntpLogCount = 0;
+
+// ============================================================
+// Status-Variablen
+// ============================================================
+static String   activeNtp       = "";
+static uint32_t lastNtpProbeMs  = 0;
+static time_t   lastSyncEpoch   = 0;
+static char     lastDispTime[9]  = "";  // für Invalidierung nach mx.clear()
+static char     lastDispDate[11] = "";
+static uint32_t bootMs          = 0;
+
+// Letzter manueller Test (für Web-UI)
+static String   lastTestHost;
+static String   lastTestResult;
+static String   lastTestDetail;
+static uint32_t lastTestMs   = 0;
+
+// Asynchroner Test: wird in loop() ausgeführt, nicht im Web-Handler
+static int8_t   pendingTestIndex = -1;   // -1=kein Test, 1/2/3=NTP#x
+static bool     testRunning      = false;
+
+// Factory-Reset Tracking
+static uint32_t resetPressStartMs = 0;
+
+// ============================================================
+// Hilfsfunktionen
+// ============================================================
+static String ipOrEmpty(const IPAddress& ip) {
+  return (ip == (IPAddress)0U) ? "" : ip.toString();
+}
+
+static String ipOrLabel(const IPAddress& ip, const char* label = "(nicht gesetzt)") {
+  return (ip == (IPAddress)0U) ? String(label) : ip.toString();
+}
+
+static String uptimeStr() {
+  uint32_t s = (millis() - bootMs) / 1000UL;
+  uint32_t m = s / 60; s %= 60;
+  uint32_t h = m / 60; m %= 60;
+  uint32_t d = h / 24; h %= 24;
+  char buf[32];
+  snprintf(buf, sizeof(buf), "%lud %02lu:%02lu:%02lu", d, h, m, s);
+  return String(buf);
+}
+
+static inline void applyBrightness() {
+  if (cfg.brightness > 15) cfg.brightness = 15;
+  mx.control(MD_MAX72XX::INTENSITY, cfg.brightness);
+}
+
+// ============================================================
+// Software-PWM via SHUTDOWN-Register + Ticker
+// Ticker feuert über yield() auch während server.handleClient(),
+// ArduinoOTA.handle() etc. → kein Loop-Jitter auf die PWM-Zeiten.
+// ============================================================
+static bool   g_pwmOn = false;  // true = Dunkelphase aktiv
+static Ticker g_pwmTicker;
+
+static void pwmTick();  // Vorwärtsdeklaration
+
+static void pwmSchedule() {
+  uint32_t nextMs = g_pwmOn
+    ? (uint32_t)cfg.pwm_duty * 2        // Dunkelphasendauer
+    : 20 - (uint32_t)cfg.pwm_duty * 2;  // Hellphasendauer
+  g_pwmTicker.once_ms(nextMs, pwmTick);
+}
+
+static void pwmTick() {
+  g_pwmOn = !g_pwmOn;
+  mx.control(MD_MAX72XX::SHUTDOWN, g_pwmOn ? MD_MAX72XX::ON : MD_MAX72XX::OFF);
+  pwmSchedule();
+}
+
+static void pwmStart() {
+  g_pwmTicker.detach();
+  if (cfg.pwm_duty >= 10) return;
+  g_pwmOn = false;  // mit Hellphase starten
+  pwmSchedule();
+}
+
+static void pwmStop() {
+  g_pwmTicker.detach();
+  if (g_pwmOn) {
+    g_pwmOn = false;
+    mx.control(MD_MAX72XX::SHUTDOWN, MD_MAX72XX::OFF);  // Display AN
+  }
+}
+
+static inline uint16_t effectiveNtpIntervalMin() {
+  return (cfg.ntp_interval_min == 0) ? 15 : cfg.ntp_interval_min;
+}
+
+static uint32_t nextSyncInSec() {
+  if (WiFi.status() != WL_CONNECTED) return 0;
+  uint32_t intervalMs = (uint32_t)effectiveNtpIntervalMin() * 60000UL;
+  if (!lastNtpProbeMs) return intervalMs / 1000UL;
+  uint32_t el = millis() - lastNtpProbeMs;
+  return (el >= intervalMs) ? 0 : (intervalMs - el) / 1000UL;
+}
+
+// ============================================================
+// lwIP DNS-Auflösung (zuverlässig, für Diagnose)
+// ============================================================
+struct DnsWaitState {
+  volatile bool done, ok;
+  ip_addr_t addr;
+};
+
+static void dnsCb(const char*, const ip_addr_t* ipaddr, void* arg) {
+  DnsWaitState* st = (DnsWaitState*)arg;
+  if (!st) return;
+  if (ipaddr) { st->addr = *ipaddr; st->ok = true; }
+  else        { st->ok = false; }
+  st->done = true;
+}
+
+static bool dnsResolveA_lwip(const String& host, IPAddress& outIp,
+                              String& dbg, uint32_t timeoutMs)
+{
+  outIp = (IPAddress)0U;
+  if (!host.length())                    { dbg = F("lwip:LEER");    return false; }
+  if (WiFi.status() != WL_CONNECTED)    { dbg = F("lwip:KEIN_WLAN"); return false; }
+
+  DnsWaitState st { false, false, {} };
+  ip_addr_t addr;
+  err_t e = dns_gethostbyname(host.c_str(), &addr, dnsCb, &st);
+
+  if (e == ERR_OK) {
+    st.addr = addr; st.ok = st.done = true;
+  } else if (e == ERR_INPROGRESS) {
+    uint32_t t0 = millis();
+    while (!st.done && (millis() - t0 < timeoutMs)) { delay(1); yield(); }
+    if (!st.done) { dbg = F("lwip:TIMEOUT"); return false; }
+    if (!st.ok)   { dbg = F("lwip:FAIL");    return false; }
+  } else {
+    dbg = String(F("lwip:ERR=")) + (int)e;
+    return false;
+  }
+
+  const ip4_addr_t* a4 = ip_2_ip4(&st.addr);
+  outIp = IPAddress(ip4_addr1(a4), ip4_addr2(a4), ip4_addr3(a4), ip4_addr4(a4));
+  dbg   = String(F("lwip:OK ip=")) + outIp.toString();
+  return true;
+}
+
+// ============================================================
+// IP-Cache (3 Einträge)
+// ============================================================
+struct HostIpCache { String host; IPAddress ip; uint32_t ms; bool valid; };
+static HostIpCache g_ipcache[3];
+
+static uint8_t cacheSlotFor(const String& host) {
+  for (uint8_t i = 0; i < 3; i++)
+    if (g_ipcache[i].valid && g_ipcache[i].host == host) return i;
+  for (uint8_t i = 0; i < 3; i++)
+    if (!g_ipcache[i].valid) return i;
+  return 0;
+}
+
+static void cachePut(const String& host, const IPAddress& ip) {
+  uint8_t idx = cacheSlotFor(host);
+  g_ipcache[idx] = { host, ip, millis(), true };
+}
+
+static bool cacheGet(const String& host, IPAddress& ip, uint32_t& ageSec) {
+  for (uint8_t i = 0; i < 3; i++) {
+    if (g_ipcache[i].valid && g_ipcache[i].host == host) {
+      ip = g_ipcache[i].ip;
+      ageSec = (millis() - g_ipcache[i].ms) / 1000UL;
+      return true;
+    }
+  }
+  return false;
+}
+
+static void ntpLogAdd(uint32_t epoch, const String& host, bool ok, const String& detail) {
+  ntpLog[ntpLogHead].timestampEpoch = epoch;
+  ntpLog[ntpLogHead].host    = host;
+  ntpLog[ntpLogHead].success = ok;
+  ntpLog[ntpLogHead].detail  = detail;
+  ntpLogHead  = (ntpLogHead + 1) % NTP_LOG_ENTRIES;
+  if (ntpLogCount < NTP_LOG_ENTRIES) ntpLogCount++;
+}
+
+#include "display.h"
+
+// ============================================================
+// NTP Probe
+// ============================================================
+static bool ntpProbeOnce(const String& host, uint16_t timeoutMs, String* detail = nullptr) {
+  if (!host.length())                 { if(detail) *detail=F("EMPTY_HOST"); return false; }
+  if (WiFi.status() != WL_CONNECTED) { if(detail) *detail=F("NO_WIFI");    return false; }
+
+  IPAddress ip;
+  bool resolved = false;
+  for (uint8_t attempt = 0; attempt < 3 && !resolved; attempt++) {
+    if (WiFi.hostByName(host.c_str(), ip)) resolved = true;
+    else { delay(80); yield(); }
+  }
+
+  String how;
+  if (resolved) {
+    cachePut(host, ip);
+    how = String(F("RESOLVED ip=")) + ip.toString();
+  } else {
+    IPAddress lastIp; uint32_t ageSec;
+    if (cacheGet(host, lastIp, ageSec)) {
+      ip  = lastIp;
+      how = String(F("CACHE ip=")) + ip.toString() + F(" age=") + ageSec + "s";
+    } else {
+      if (detail) *detail = String(F("RESOLVE_FAIL dns0="))
+                          + ipOrLabel(WiFi.dnsIP(0)) + F(" dns1=")
+                          + ipOrLabel(WiFi.dnsIP(1));
+      return false;
+    }
+  }
+
+  // UDP-Probe -----------------------------------------------
+  static uint16_t localPort = 0;
+  if (!localPort) localPort = NTP_UDP_PORT_BASE + (ESP.getChipId() & 0x0FFF);
+
+  static WiFiUDP udp;
+  udp.stop();
+  // Bei begin()-Fehler: Port wechseln und nochmal versuchen
+  if (!udp.begin(localPort)) {
+    localPort = (localPort < 2500) ? localPort + 1 : NTP_UDP_PORT_BASE;
+    if (!udp.begin(localPort)) {
+      if (detail) *detail = how + F(" UDP_BEGIN_FAIL port=") + localPort;
+      return false;
+    }
+  }
+
+  // Rx-Buffer leeren
+  while (udp.parsePacket() > 0) { uint8_t d[64]; udp.read(d, 64); }
+
+  uint8_t pkt[48] = {};
+  pkt[0] = 0x1B;
+
+  if (!udp.beginPacket(ip, 123)) { udp.stop(); if(detail) *detail=how+F(" BEGINPKT_FAIL"); return false; }
+  if (udp.write(pkt, 48) != 48) { udp.stop(); if(detail) *detail=how+F(" WRITE_FAIL");    return false; }
+  if (!udp.endPacket())          { udp.stop(); if(detail) *detail=how+F(" ENDPKT_FAIL");   return false; }
+
+  uint32_t start = millis();
+  while (millis() - start < timeoutMs) {
+    int len = udp.parsePacket();
+    if (len > 0) {
+      uint8_t buf[48]; int n = udp.read(buf, min(len, 48));
+      udp.stop();
+      if (n < 48)       { if(detail) *detail=how+F(" SHORT=") +n; return false; }
+      if ((buf[0]&7)!=4){ if(detail) *detail=how+F(" BAD_MODE=")+(buf[0]&7); return false; }
+      uint32_t txSec = ((uint32_t)buf[40]<<24)|((uint32_t)buf[41]<<16)|
+                       ((uint32_t)buf[42]<<8 )|buf[43];
+      if (!txSec)        { if(detail) *detail=how+F(" BAD_TS"); return false; }
+      if (detail) *detail = how + F(" OK txSec=") + txSec;
+      return true;
+    }
+    delay(10); yield();
+  }
+  udp.stop();
+  if (detail) *detail = how + F(" TIMEOUT");
+  return false;
+}
+
+// NTP-Probe direkt per IP (kein DNS) — für Test & Fallback
+static bool ntpProbeByIp(const IPAddress& ip, uint16_t timeoutMs, String* detail) {
+  if (ip == (IPAddress)0U) { if (detail) *detail = F("IP=0 ungueltig"); return false; }
+  if (WiFi.status() != WL_CONNECTED) { if (detail) *detail = F("NO_WIFI"); return false; }
+
+  static WiFiUDP udpDirect;
+  udpDirect.stop();
+  static uint16_t directPort = 2389;
+  if (!udpDirect.begin(directPort)) {
+    directPort = (directPort < 2450) ? directPort + 1 : 2389;
+    if (!udpDirect.begin(directPort)) {
+      if (detail) *detail = F("UDP_BEGIN_FAIL");
+      return false;
+    }
+  }
+
+  // Rx-Buffer leeren
+  while (udpDirect.parsePacket() > 0) { uint8_t d[64]; udpDirect.read(d, 64); }
+
+  uint8_t pkt[48] = {};
+  pkt[0] = 0x1B;
+
+  if (!udpDirect.beginPacket(ip, 123)) { udpDirect.stop(); if (detail) *detail=F("BEGINPKT_FAIL"); return false; }
+  if (udpDirect.write(pkt, 48) != 48)  { udpDirect.stop(); if (detail) *detail=F("WRITE_FAIL");    return false; }
+  if (!udpDirect.endPacket())           { udpDirect.stop(); if (detail) *detail=F("ENDPKT_FAIL");   return false; }
+
+  uint32_t start = millis();
+  while (millis() - start < timeoutMs) {
+    int len = udpDirect.parsePacket();
+    if (len > 0) {
+      uint8_t buf[48]; int n = udpDirect.read(buf, min(len, 48));
+      udpDirect.stop();
+      if (n < 48)        { if (detail) *detail=String(F("SHORT="))+n; return false; }
+      if ((buf[0]&7)!=4) { if (detail) *detail=String(F("BAD_MODE="))+(buf[0]&7); return false; }
+      uint32_t txSec = ((uint32_t)buf[40]<<24)|((uint32_t)buf[41]<<16)|
+                       ((uint32_t)buf[42]<<8)|buf[43];
+      if (!txSec) { if (detail) *detail=F("BAD_TS=0"); return false; }
+      if (detail) *detail = String(F("OK txSec=")) + txSec + F(" ip=") + ip.toString();
+      return true;
+    }
+    delay(10); yield();
+  }
+  udpDirect.stop();
+  if (detail) *detail = String(F("TIMEOUT ip=")) + ip.toString();
+  return false;
+}
+
+static String chooseBestNtp() {
+  if (ntpProbeOnce(cfg.ntp1, NTP_PROBE_TIMEOUT_MS)) return cfg.ntp1;
+  if (ntpProbeOnce(cfg.ntp2, NTP_PROBE_TIMEOUT_MS)) return cfg.ntp2;
+  if (ntpProbeOnce(cfg.ntp3, NTP_PROBE_TIMEOUT_MS)) return cfg.ntp3;
+  return "";
+}
+
+// ============================================================
+// Zeitzone → POSIX-String
+// ============================================================
+static String posixFromConfig() {
+  int posixH = -(cfg.utc_offset_min / 60);
+  int posixM =  abs(cfg.utc_offset_min % 60);
+
+  auto fmtOff = [](int h, int m) -> String {
+    return String(h) + (m ? String(F(":")) + String(m < 10 ? "0" : "") + m : "");
+  };
+
+  if (cfg.dst_mode == 0) return String(F("STD")) + fmtOff(posixH, posixM);
+
+  uint8_t sm,sw,sd,sh, em,ew,ed,eh;
+  if      (cfg.dst_mode == 1) { sm=3;sw=5;sd=0;sh=2; em=10;ew=5;ed=0;eh=3; }
+  else if (cfg.dst_mode == 2) { sm=3;sw=2;sd=0;sh=2; em=11;ew=1;ed=0;eh=2; }
+  else { sm=cfg.dst_sm;sw=cfg.dst_sw;sd=cfg.dst_sd;sh=cfg.dst_sh;
+         em=cfg.dst_em;ew=cfg.dst_ew;ed=cfg.dst_ed;eh=cfg.dst_eh; }
+
+  int dstTotal = cfg.utc_offset_min + cfg.dst_add_min;
+  int dstH = -(dstTotal / 60), dstM = abs(dstTotal % 60);
+
+  auto rule = [](uint8_t m,uint8_t w,uint8_t d,uint8_t h) -> String {
+    return String(F("M"))+m+'.'+w+'.'+d+'/'+h;
+  };
+
+  return String(F("STD")) + fmtOff(posixH,posixM)
+       + String(F("DST")) + fmtOff(dstH,dstM)
+       + ',' + rule(sm,sw,sd,sh) + ',' + rule(em,ew,ed,eh);
+}
+
+static void applyTimeConfig(bool force) {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  String best = chooseBestNtp();
+  lastNtpProbeMs = millis();
+
+  String detail;
+  ntpProbeOnce(best.length() ? best : cfg.ntp1, NTP_PROBE_TIMEOUT_MS, &detail);
+  ntpLogAdd(time(nullptr), best.length() ? best : cfg.ntp1, best.length() > 0, detail);
+
+  if (!force && best == activeNtp) return;
+
+  String tz = posixFromConfig();
+  setenv("TZ", tz.c_str(), 1);
+  tzset();
+
+  String s1 = best.length() ? best : cfg.ntp1;
+  String s2 = (s1 != cfg.ntp2) ? cfg.ntp2 : cfg.ntp3;
+  String s3 = (s1 != cfg.ntp3 && s2 != cfg.ntp3) ? cfg.ntp3 : "";
+
+  configTime(tz.c_str(), s1.c_str(),
+             s2.length() ? s2.c_str() : nullptr,
+             s3.length() ? s3.c_str() : nullptr);
+  activeNtp = best;
+}
+
+// ============================================================
+// IP / DNS Setup
+// ============================================================
+static void applyIpAndDnsBeforeConnect() {
+  WiFi.persistent(false);
+  if (cfg.use_dhcp) return;
+
+  IPAddress ip, gw, mask, d1, d2;
+  if (!parseIP(cfg.static_ip, ip) || !parseIP(cfg.static_gw, gw) || !parseIP(cfg.static_mask, mask))
+    return;
+
+  bool has1 = cfg.dns1.length() && parseIP(cfg.dns1, d1);
+  bool has2 = cfg.dns2.length() && parseIP(cfg.dns2, d2);
+  if (has1 && !has2) d2 = d1;
+  if (!has1 && has2) d1 = d2;
+
+  WiFi.config(ip, gw, mask,
+              has1 ? d1 : (IPAddress)0U,
+              has2 ? d2 : (IPAddress)0U);
+}
+
+// ============================================================
+// WiFi Connect (STA)
+// ============================================================
+static bool connectWiFiSTA(bool showUi = true) {
+  WiFi.mode(WIFI_STA);
+  WiFi.persistent(false);
+  WiFi.disconnect(true);
+  delay(100);
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
+  applyIpAndDnsBeforeConnect();
+  WiFi.begin(cfg.sta_ssid.c_str(), cfg.sta_pass.c_str());
+
+  uint32_t startMs = millis(), lastBlink = 0;
+  bool visible = true;
+
+  while (WiFi.status() != WL_CONNECTED) {
+    uint32_t elapsed = (millis() - startMs) / 1000;
+    if (elapsed >= cfg.wifi_timeout_sec) break;
+    uint16_t left = cfg.wifi_timeout_sec - (uint16_t)elapsed;
+    if (showUi && millis() - lastBlink >= 500) {
+      lastBlink = millis(); visible = !visible;
+      showInitWifi(left, visible);
+    }
+    delay(25); yield();
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    // Warten bis DNS verfügbar
+    uint32_t tDns = millis();
+    while (WiFi.dnsIP(0) == (IPAddress)0U && millis() - tDns < 2000) { delay(50); yield(); }
+    mx.clear();
+    return true;
+  }
+
+  if (showUi) {
+    bool vis = true;
+    for (uint8_t i = 0; i < 5; i++) {
+      showWifiNotFound(vis); vis = !vis; delay(250); yield();
+    }
+  }
+  mx.clear();
+  return false;
+}
+
+// ============================================================
+// Captive Portal (AP-Modus)
+// ============================================================
+ESP8266WebServer server(WEB_PORT);
+DNSServer        dnsServer;
+
+static void startCaptivePortal() {
+  WiFi.mode(WIFI_AP);
+  WiFi.persistent(false);
+  WiFi.disconnect(true);
+  delay(50);
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
+  WiFi.softAPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
+
+  String apName = String(FPSTR(AP_PREFIX)) + String(ESP.getChipId(), HEX);
+  apName.toUpperCase();
+  WiFi.softAP(apName.c_str());
+
+  dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+  server.onNotFound([](){
+    server.sendHeader(F("Location"), String(F("http://")) + WiFi.softAPIP().toString() + '/', true);
+    server.send(302, F("text/plain"), "");
+  });
+}
+
+// ============================================================
+// OTA Setup
+// ============================================================
+static void setupOTA() {
+  if (!cfg.ota_enabled) return;
+
+  ArduinoOTA.setHostname("dottie");
+  if (cfg.ota_password.length())
+    ArduinoOTA.setPassword(cfg.ota_password.c_str());
+
+  ArduinoOTA.onStart([]() {
+    pwmStop();  // Ticker anhalten, Display einschalten
+    drawTopCentered(F("OTA"));
+    drawBottomText5x7Centered(F("UPDATE"));
+  });
+  ArduinoOTA.onProgress([](unsigned int prog, unsigned int total) {
+    static uint8_t lastPct = 255;
+    uint8_t pct = (uint8_t)(prog * 100 / total);
+    if (pct != lastPct) {
+      lastPct = pct;
+      drawTopCentered(String(pct) + '%');
+    }
+  });
+  ArduinoOTA.onEnd([]() {
+    drawTopCentered(F("DONE"));
+    drawBottomText5x7Centered(F("REBOOT"));
+  });
+  ArduinoOTA.onError([](ota_error_t err) {
+    drawTopCentered(F("OTA ERR"));
+    drawBottomText5x7Centered(String(err));
+  });
+  ArduinoOTA.begin();
+}
+
+#include "webserver.h"
+
+// ============================================================
+// Zeit-Strings
+// ============================================================
+static bool getLocalStrings(char timeStr[9], char dateStr[11]) {
+  time_t now = time(nullptr);
+  if (now < 1700000000UL) return false;
+  struct tm tmNow;
+  localtime_r(&now, &tmNow);
+
+  // Zeitformat
+  if (cfg.show_24h) {
+    if (cfg.show_seconds)
+      snprintf(timeStr, 9, "%02d:%02d:%02d", tmNow.tm_hour, tmNow.tm_min, tmNow.tm_sec);
+    else
+      snprintf(timeStr, 9, "  %02d:%02d  ", tmNow.tm_hour, tmNow.tm_min);
+  } else {
+    uint8_t h = tmNow.tm_hour % 12;
+    if (h == 0) h = 12;
+    const char* ap = (tmNow.tm_hour < 12) ? "AM" : "PM";
+    snprintf(timeStr, 9, "%2d:%02d %s", h, tmNow.tm_min, ap);
+  }
+
+  // Datumsformat
+  int y4 = tmNow.tm_year + 1900;
+  int y2 = y4 % 100;
+  int mo = tmNow.tm_mon + 1;
+  int dy = tmNow.tm_mday;
+  switch (cfg.date_fmt) {
+    case 1:  snprintf(dateStr, 11, "%02d/%02d/%04d", mo, dy, y4); break; // MM/DD/YYYY
+    case 2:  snprintf(dateStr, 11, "%04d-%02d-%02d", y4, mo, dy); break; // YYYY-MM-DD
+    case 3:  snprintf(dateStr, 11, "%02d.%02d.%02d",  dy, mo, y2); break; // DD.MM.YY
+    case 4:  snprintf(dateStr, 11, "%02d/%02d/%02d",  mo, dy, y2); break; // MM/DD/YY
+    default: snprintf(dateStr, 11, "%02d.%02d.%04d",  dy, mo, y4); break; // DD.MM.YYYY
+  }
+  return true;
+}
+
+// ============================================================
+// Factory-Reset-Button (Runtime, Release-Safe)
+// ============================================================
+static bool handleRuntimeResetHold() {
+  static uint32_t releaseStartMs = 0;
+  bool pressed = (digitalRead(FACTORY_RESET_PIN) == LOW);
+
+  if (pressed) {
+    releaseStartMs = 0;
+    if (!resetPressStartMs) resetPressStartMs = millis();
+    uint32_t held    = millis() - resetPressStartMs;
+    uint32_t leftMs  = (held >= FACTORY_RESET_HOLD_MS) ? 0 : FACTORY_RESET_HOLD_MS - held;
+    showResetCountdown((uint8_t)((leftMs + 999) / 1000));
+    if (held >= FACTORY_RESET_HOLD_MS) { showFactoryScreen(); delay(600); factoryReset(); }
+    return true;
+  }
+
+  if (resetPressStartMs) {
+    if (!releaseStartMs) releaseStartMs = millis();
+    if (millis() - releaseStartMs >= RESET_DEBOUNCE_MS) {
+      resetPressStartMs = 0; releaseStartMs = 0; mx.clear();
+      // Display-Cache invalidieren damit Zeit+Datum neu gezeichnet werden
+      lastDispTime[0] = '\0';
+      lastDispDate[0] = '\0';
+    }
+    return true;
+  }
+  return false;
+}
+
+// ============================================================
+// WiFi-Reconnect (State Machine)
+// ============================================================
+static void handleWiFiReconnect() {
+  if (WiFi.getMode() & WIFI_AP) return; // Im AP-Modus nicht reconnecten
+  if (!cfg.sta_ssid.length()) return;
+
+  bool connected = (WiFi.status() == WL_CONNECTED);
+
+  if (connected) {
+    if (wifiMgr.state != ClockWiFiState::CONNECTED) {
+      wifiMgr.state = ClockWiFiState::CONNECTED;
+      wifiMgr.reset();
+      MDNS.begin("dottie");
+      applyTimeConfig(true);
+    }
+    return;
+  }
+
+  // Getrennt — Reconnect planen
+  if (wifiMgr.state == ClockWiFiState::CONNECTED) {
+    wifiMgr.state = ClockWiFiState::DISCONNECTED;
+    wifiMgr.lastCheckMs = millis();
+    // Kurze Display-Anzeige
+    drawTopCentered(F("WLAN?"));
+    drawBottomText5x7Centered(F("LOST"));
+    lastDispTime[0] = '\0';  // Redraw erzwingen nach LOST-Anzeige
+    lastDispDate[0] = '\0';
+    delay(800);
+  }
+
+  uint32_t waitMs = (uint32_t)wifiMgr.reconnectIntervalS * 1000UL;
+  if (millis() - wifiMgr.lastCheckMs < waitMs) return;
+
+  wifiMgr.lastCheckMs = millis();
+  wifiMgr.state = ClockWiFiState::RECONNECTING;
+
+  bool ok = connectWiFiSTA(false); // ohne UI-Blink
+  if (ok) {
+    wifiMgr.state = ClockWiFiState::CONNECTED;
+    wifiMgr.reset();
+  } else {
+    wifiMgr.state = ClockWiFiState::DISCONNECTED;
+    wifiMgr.backoff();
+    // Display: nächster Versuch in X Sekunden
+    drawTopCentered(F("RETRY"));
+    drawBottomText5x7Centered(String(wifiMgr.reconnectIntervalS) + 'S');
+    delay(600);
+    mx.clear();
+  }
+}
+
+// ============================================================
+// Setup
+// ============================================================
+void setup() {
+  bootMs = millis();
+  pinMode(FACTORY_RESET_PIN, INPUT);
+
+  mx.begin();
+  mx.control(MD_MAX72XX::TEST, MD_MAX72XX::OFF);
+  mx.control(MD_MAX72XX::INTENSITY, 1);
+  mx.clear();
+
+  // Factory-Reset beim Boot (Taste gehalten)
+  if (digitalRead(FACTORY_RESET_PIN) == LOW) {
+    showFactoryScreen(); delay(900); factoryReset();
+  }
+
+  loadConfig();
+  applyBrightness();
+  pwmStart();
+
+  bool haveCreds = cfg.sta_ssid.length() > 0;
+
+  if (haveCreds && connectWiFiSTA(true)) {
+    wifiMgr.state = ClockWiFiState::CONNECTED;
+    MDNS.begin("dottie");
+    setupOTA();
+    setupWeb();
+    applyTimeConfig(true);
+    showTopMarquee(String(F("IP:")) + WiFi.localIP().toString(), cfg.ip_show_sec);
+  } else {
+    if (haveCreds) {
+      // WLAN-Verbindung fehlgeschlagen — kurz anzeigen
+      drawTopCentered(F("ERR"));
+      drawBottomText5x7Centered(F("WIFI"));
+      delay(1500);
+    }
+    startCaptivePortal();
+    setupWeb();
+    wifiMgr.state = ClockWiFiState::AP_MODE;
+    // AP-IP als Laufschrift damit man weiß wohin verbinden
+    showTopMarquee(String(F("AP ")) + WiFi.softAPIP().toString(), cfg.ip_show_sec);
+    drawTopCentered(F("AP"));
+    drawBottomText5x7Centered(WiFi.softAPIP().toString());
+  }
+}
+
+// ============================================================
+// Loop
+// ============================================================
+void loop() {
+  // ① Factory-Reset-Button prüfen
+  if (handleRuntimeResetHold()) {
+    server.handleClient();
+    if (WiFi.getMode() & WIFI_AP) dnsServer.processNextRequest();
+    return;
+  }
+
+  // ② OTA verarbeiten
+  if (cfg.ota_enabled) ArduinoOTA.handle();
+
+  // ③ mDNS verarbeiten
+  MDNS.update();
+
+  // ④ DNS (Captive Portal) / Web
+  if (WiFi.getMode() & WIFI_AP) dnsServer.processNextRequest();
+  server.handleClient();
+
+  // ④b Asynchronen NTP-Test ausführen (muss in loop() sein, nicht im Web-Handler)
+  runPendingNtpTest();
+
+  // ⑤ WiFi-Reconnect State Machine
+  handleWiFiReconnect();
+
+  // ⑥ NTP-Intervall
+  if (WiFi.status() == WL_CONNECTED) {
+    uint32_t intervalMs = (uint32_t)effectiveNtpIntervalMin() * 60000UL;
+    if (!lastNtpProbeMs || millis() - lastNtpProbeMs > intervalMs)
+      applyTimeConfig(false);
+  }
+
+  // ⑦ Letzten bekannten Sync-Zeitstempel merken
+  time_t nowt = time(nullptr);
+  if (nowt > 1700000000UL) lastSyncEpoch = nowt;
+
+  // ⑧a Scroll-Animation tick (~50 Hz während Transition)
+  {
+    static uint32_t lastScrollMs = 0;
+    uint32_t now = millis();
+    if (lastScrollMs == 0) {
+      // Erster Aufruf: Tick-Timer auf Sub-Sekunden-Raster ausrichten
+      struct timeval tv; gettimeofday(&tv, nullptr);
+      lastScrollMs = now - ((tv.tv_usec / 1000) % 20);
+    }
+    if (now - lastScrollMs >= 20) {
+      lastScrollMs += 20;   // kein Drift: exakter 20ms-Takt
+      tickScrollTop();
+    }
+  }
+
+  // ⑧c Display-Update (max. 5 Hz reicht)
+  // lastDispTime / lastDispDate sind global (werden von handleRuntimeResetHold invalidiert)
+  char* lastTime = lastDispTime;
+  char* lastDate = lastDispDate;
+  static uint32_t lastMs   = 0;
+
+  if (millis() - lastMs < 50) { delay(0); return; }
+  lastMs = millis();
+
+  char t[9], d[11];
+  if (!getLocalStrings(t, d)) {
+    if (WiFi.getMode() & WIFI_AP) {
+      if (strcmp(lastTime, "AP      ") != 0) {
+        strcpy(lastTime, "AP      ");
+        drawTopCentered(F("AP"));
+        strcpy(lastDate, "");
+        drawBottomText5x7Centered(WiFi.softAPIP().toString());
+      }
+    } else {
+      const char* noTimeStr = cfg.show_24h
+                              ? (cfg.show_seconds ? "--:--:--" : "  --:--  ")
+                              : "--:-- --";
+      if (strcmp(lastTime, noTimeStr) != 0) {
+        strcpy(lastTime, noTimeStr);
+        drawTimeHHMMSS(noTimeStr);
+        strcpy(lastDate, "NO NTP");
+        drawBottomText5x7Centered(F("NO NTP"));
+      }
+    }
+    return;
+  }
+
+  if (strcmp(t, lastTime) != 0) { strcpy(lastTime, t); drawTimeHHMMSS(t); }
+  if (strcmp(d, lastDate) != 0) { strcpy(lastDate, d); drawBottomText5x7Centered(String(d)); }
+}
