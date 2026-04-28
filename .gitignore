@@ -6,6 +6,7 @@ release/
 .vscode/
 .cache/
 .clangd
+node_modules/
 
 # Von pio run -t compiledb generiert (4 MB, maschinenspezifisch)
 compile_commands.json
