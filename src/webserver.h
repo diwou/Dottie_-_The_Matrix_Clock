@@ -24,6 +24,20 @@ static String htmlEscape(String s) {
   s.replace(F("'"),  F("&#39;"));
   return s;
 }
+static String jsonEscape(const String& s) {
+  String out;
+  out.reserve(s.length() + 8);
+  for (uint16_t i = 0; i < s.length(); i++) {
+    char c = s[i];
+    if      (c == '"')  out += "\\\"";
+    else if (c == '\\') out += "\\\\";
+    else if (c == '\n') out += "\\n";
+    else if (c == '\r') {}
+    else if ((uint8_t)c < 0x20) {}
+    else                out += c;
+  }
+  return out;
+}
 static const char* checked(bool v)  { return v ? " checked"  : ""; }
 static const char* selected(bool v) { return v ? " selected" : ""; }
 
@@ -587,7 +601,10 @@ static void handleSave() {
   cfg.ota_enabled  = server.hasArg(F("ota_enabled"));
   if (server.hasArg(F("ota_password"))) cfg.ota_password = arg("ota_password");
 
-  saveConfig();
+  if (!saveConfig()) {
+    server.send(500, F("text/plain"), F("Konfiguration konnte nicht gespeichert werden."));
+    return;
+  }
 
   // Im AP-Modus: Neustart damit der ESP sich mit den neuen WLAN-Daten verbindet
   if (WiFi.getMode() & WIFI_AP) {
@@ -746,19 +763,11 @@ static void handleApiNtpTest() {
   String json = "{\"running\":";
   json += testRunning ? "true" : "false";
   json += ",\"host\":\"";
-  json += htmlEscape(lastTestHost);
+  json += jsonEscape(lastTestHost);
   json += "\",\"result\":\"";
-  json += htmlEscape(lastTestResult);
+  json += jsonEscape(lastTestResult);
   json += "\",\"detail\":\"";
-  // Escape detail for JSON embedding
-  for (uint16_t i = 0; i < lastTestDetail.length(); i++) {
-    char c = lastTestDetail[i];
-    if      (c == '"')  json += "\\\"";
-    else if (c == '\\') json += "\\\\";
-    else if (c == '\n') json += "\\n";
-    else if (c == '\r') {} // skip
-    else                json += c;
-  }
+  json += jsonEscape(lastTestDetail);
   json += "\"}";
   server.sendHeader(F("Cache-Control"), F("no-cache"));
   server.send(200, F("application/json"), json);
@@ -773,12 +782,19 @@ static void handleApiStatus() {
   if (timeValid) {
     localtime_r(&now, &tm_l);
     snprintf(tbuf, sizeof(tbuf), "%02d:%02d:%02d", tm_l.tm_hour, tm_l.tm_min, tm_l.tm_sec);
-    snprintf(dbuf, sizeof(dbuf), "%02d.%02d.%04d", tm_l.tm_mday, tm_l.tm_mon+1, tm_l.tm_year+1900);
+    formatDateDmy(dbuf,
+                  (uint8_t)tm_l.tm_mday,
+                  (uint8_t)(tm_l.tm_mon + 1),
+                  (uint16_t)(tm_l.tm_year + 1900));
   }
   // Uptime
   uint32_t s=(millis()-bootMs)/1000; uint32_t m=s/60; s%=60;
   uint32_t h=m/60; m%=60; uint32_t d=h/24; h%=24;
-  char upbuf[24]; snprintf(upbuf, sizeof(upbuf), "%lud %02lu:%02lu:%02lu", d, h, m, s);
+  char upbuf[24]; snprintf(upbuf, sizeof(upbuf), "%lud %02lu:%02lu:%02lu",
+                           (unsigned long)d,
+                           (unsigned long)h,
+                           (unsigned long)m,
+                           (unsigned long)s);
 
   String json = "{";
   json += String(F("\"time\":\"")) + tbuf + F("\",");

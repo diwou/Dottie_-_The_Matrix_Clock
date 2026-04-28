@@ -2,7 +2,7 @@
 
 Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis eines **ESP8266 (NodeMCU v2)** mit 16 MAX7219-LED-Matrix-Modulen. Zeigt Zeit und Datum mit Scroll-Animation, Weboberfläche, OTA-Updates und automatischer Zeitsynchronisation.
 
-- Aktuelle Version: `1.4.7`
+- Aktuelle Version: `1.4.8` (Development-Builds zeigen zusätzlich den Codeberg-Kurz-Hash)
 - Repository: `https://codeberg.org/diwou/Dottie_-_The_Matrix_Clock`
 - Lizenz: `CC BY-NC-SA 4.0`
 
@@ -51,8 +51,8 @@ Die 16 Module bilden eine SPI-Kette: TOP (Module 0–7, rechts nach links) und B
 # Kompilieren
 pio run -e nodemcuv2
 
-# OTA-Upload (IP in platformio.ini anpassen!)
-pio run -t upload -e nodemcuv2
+# OTA-Upload (IP per CLI angeben)
+pio run -t upload -e nodemcuv2_ota --upload-port 10.10.60.125
 
 # Serieller Monitor (USB-Fallback, 115200 Baud)
 pio device monitor
@@ -69,7 +69,7 @@ pio device monitor
 
 ## Inbetriebnahme
 
-1. `platformio.ini` öffnen und `upload_port` auf die IP-Adresse des Geräts setzen (oder Serial-Upload verwenden)
+1. Firmware per USB oder OTA flashen; bei OTA die Geräte-IP über `--upload-port` angeben
 2. Firmware flashen: `pio run -t upload -e nodemcuv2`
 3. Beim ersten Start ohne gespeicherte WLAN-Konfiguration öffnet Dottie einen **AP** mit SSID `DOTTIE-{ChipID}`
 4. Mit dem AP verbinden (IP: `192.168.4.1`) und WLAN-Zugangsdaten eingeben
@@ -121,6 +121,7 @@ Die Konfiguration wird als `Key=Value`-Datei auf LittleFS unter `/cfg.txt` gespe
 | `show_seconds` | 1 | Sekunden anzeigen (nur 24h) |
 | `brightness` | 1 | Display-Helligkeit (0–15) |
 | `scroll_enabled` | 1 | Scroll-Animation beim Ziffernwechsel |
+| `pwm_duty` | 10 | Software-Dimmen (10 = aus, 1–5 = 10–50 % Abdunklung) |
 
 ### Datumsformate
 
@@ -141,7 +142,7 @@ Die Konfiguration wird als `Key=Value`-Datei auf LittleFS unter `/cfg.txt` gespe
 | Datei | Rolle |
 |---|---|
 | `src/main.cpp` | Kernlogik: Boot, WiFi-State-Machine, NTP-Sync, OTA, Loop |
-| `src/config.h` | Config-Struct, LittleFS-Load/Save (`/cfg.txt`), Makro-Parser |
+| `src/config.h` | Config-Struct, LittleFS-Load/Save (`/cfg.txt`), Makro-Parser, `APP_VERSION_BASE` |
 | `src/display.h` | Bitmap-Glyphen (8×8 + 5×7), Scroll-Animation, Display-Mapping |
 | `src/webserver.h` | HTML5-WebUI (Tabs), REST-APIs, JavaScript-Glyphen-Renderer |
 | `platformio.ini` | Build-Konfiguration, Bibliotheksabhängigkeiten |

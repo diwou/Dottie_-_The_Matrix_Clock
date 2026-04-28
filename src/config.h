@@ -6,6 +6,8 @@
 // ============================================================
 // Konstanten
 // ============================================================
+#define APP_VERSION_BASE      "1.4.8"
+
 #define FACTORY_RESET_PIN     D0      // GPIO16 – braucht externen Pull-Up!
 #define FACTORY_RESET_HOLD_MS 5000UL  // ms gehalten → Factory Reset
 #define RESET_DEBOUNCE_MS     80UL

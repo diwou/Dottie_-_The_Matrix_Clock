@@ -268,7 +268,7 @@ static void drawBottomText5x7Centered(const String& s) {
       uint8_t bits = glyphCol5x7(ch, i);
       for (uint8_t y = 0; y < 7; y++) if (bits & (1 << y)) bottomSet(x, y + 1, true);
     }
-    if (k + 1 < s.length() && x < 64) x++;
+    if (k + 1U < s.length() && x < 64) x++;
   }
 }
 
@@ -293,7 +293,7 @@ static void showFactoryScreen() {
 }
 
 static void showResetCountdown(uint8_t secLeft) {
-  char buf[9]; snprintf(buf, 9, "RESET %d ", secLeft);
+  char buf[9]; snprintf(buf, sizeof(buf), "RESET %u ", (unsigned)min<uint8_t>(secLeft, 9));
   drawTopText8Raw(buf);
   drawBottomText5x7Centered(F("HOLD"));
 }

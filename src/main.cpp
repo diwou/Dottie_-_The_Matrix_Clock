@@ -30,11 +30,6 @@ extern "C" {
 }
 
 // ============================================================
-// Firmware-Version
-// ============================================================
-static const char FW_VERSION[] PROGMEM = "Dottie 1.4.7";
-
-// ============================================================
 // Display-Konfiguration
 // ============================================================
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
@@ -43,6 +38,12 @@ static const char FW_VERSION[] PROGMEM = "Dottie 1.4.7";
 MD_MAX72XX mx(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 
 #include "config.h"
+#include "version_generated.h"
+
+// ============================================================
+// Firmware-Version
+// ============================================================
+static const char FW_VERSION[] PROGMEM = APP_VERSION_LABEL;
 
 Config     cfg;
 WiFiManager wifiMgr;
@@ -80,22 +81,8 @@ static uint32_t resetPressStartMs = 0;
 // ============================================================
 // Hilfsfunktionen
 // ============================================================
-static String ipOrEmpty(const IPAddress& ip) {
-  return (ip == (IPAddress)0U) ? "" : ip.toString();
-}
-
 static String ipOrLabel(const IPAddress& ip, const char* label = "(nicht gesetzt)") {
   return (ip == (IPAddress)0U) ? String(label) : ip.toString();
-}
-
-static String uptimeStr() {
-  uint32_t s = (millis() - bootMs) / 1000UL;
-  uint32_t m = s / 60; s %= 60;
-  uint32_t h = m / 60; m %= 60;
-  uint32_t d = h / 24; h %= 24;
-  char buf[32];
-  snprintf(buf, sizeof(buf), "%lud %02lu:%02lu:%02lu", d, h, m, s);
-  return String(buf);
 }
 
 static inline void applyBrightness() {
@@ -238,6 +225,29 @@ static void ntpLogAdd(uint32_t epoch, const String& host, bool ok, const String&
 }
 
 #include "display.h"
+
+static inline void write2Digits(char* out, uint8_t value) {
+  value %= 100;
+  out[0] = (char)('0' + value / 10);
+  out[1] = (char)('0' + value % 10);
+}
+
+static inline void write4Digits(char* out, uint16_t value) {
+  value %= 10000;
+  out[0] = (char)('0' + (value / 1000) % 10);
+  out[1] = (char)('0' + (value / 100) % 10);
+  out[2] = (char)('0' + (value / 10) % 10);
+  out[3] = (char)('0' + value % 10);
+}
+
+static inline void formatDateDmy(char* out, uint8_t day, uint8_t month, uint16_t year) {
+  write2Digits(out, day);
+  out[2] = '.';
+  write2Digits(out + 3, month);
+  out[5] = '.';
+  write4Digits(out + 6, year);
+  out[10] = '\0';
+}
 
 // ============================================================
 // NTP Probe
@@ -410,6 +420,7 @@ static void applyTimeConfig(bool force) {
   String detail;
   ntpProbeOnce(best.length() ? best : cfg.ntp1, NTP_PROBE_TIMEOUT_MS, &detail);
   ntpLogAdd(time(nullptr), best.length() ? best : cfg.ntp1, best.length() > 0, detail);
+  if (best.length() && time(nullptr) > 1700000000UL) lastSyncEpoch = time(nullptr);
 
   if (!force && best == activeNtp) return;
 
@@ -564,28 +575,65 @@ static bool getLocalStrings(char timeStr[9], char dateStr[11]) {
 
   // Zeitformat
   if (cfg.show_24h) {
-    if (cfg.show_seconds)
-      snprintf(timeStr, 9, "%02d:%02d:%02d", tmNow.tm_hour, tmNow.tm_min, tmNow.tm_sec);
-    else
-      snprintf(timeStr, 9, "  %02d:%02d  ", tmNow.tm_hour, tmNow.tm_min);
+    if (cfg.show_seconds) {
+      write2Digits(timeStr, (uint8_t)tmNow.tm_hour);
+      timeStr[2] = ':';
+      write2Digits(timeStr + 3, (uint8_t)tmNow.tm_min);
+      timeStr[5] = ':';
+      write2Digits(timeStr + 6, (uint8_t)tmNow.tm_sec);
+      timeStr[8] = '\0';
+    } else {
+      timeStr[0] = ' ';
+      write2Digits(timeStr + 1, (uint8_t)tmNow.tm_hour);
+      timeStr[3] = ':';
+      write2Digits(timeStr + 4, (uint8_t)tmNow.tm_min);
+      timeStr[6] = ' ';
+      timeStr[7] = ' ';
+      timeStr[8] = '\0';
+    }
   } else {
-    uint8_t h = tmNow.tm_hour % 12;
+    uint8_t h = (uint8_t)(tmNow.tm_hour % 12);
     if (h == 0) h = 12;
     const char* ap = (tmNow.tm_hour < 12) ? "AM" : "PM";
-    snprintf(timeStr, 9, "%2d:%02d %s", h, tmNow.tm_min, ap);
+    timeStr[0] = (h >= 10) ? (char)('0' + h / 10) : ' ';
+    timeStr[1] = (char)('0' + h % 10);
+    timeStr[2] = ':';
+    write2Digits(timeStr + 3, (uint8_t)tmNow.tm_min);
+    timeStr[5] = ' ';
+    timeStr[6] = ap[0];
+    timeStr[7] = ap[1];
+    timeStr[8] = '\0';
   }
 
   // Datumsformat
-  int y4 = tmNow.tm_year + 1900;
-  int y2 = y4 % 100;
-  int mo = tmNow.tm_mon + 1;
-  int dy = tmNow.tm_mday;
+  uint16_t y4 = (uint16_t)(tmNow.tm_year + 1900);
+  uint8_t y2 = (uint8_t)(y4 % 100);
+  uint8_t mo = (uint8_t)(tmNow.tm_mon + 1);
+  uint8_t dy = (uint8_t)tmNow.tm_mday;
   switch (cfg.date_fmt) {
-    case 1:  snprintf(dateStr, 11, "%02d/%02d/%04d", mo, dy, y4); break; // MM/DD/YYYY
-    case 2:  snprintf(dateStr, 11, "%04d-%02d-%02d", y4, mo, dy); break; // YYYY-MM-DD
-    case 3:  snprintf(dateStr, 11, "%02d.%02d.%02d",  dy, mo, y2); break; // DD.MM.YY
-    case 4:  snprintf(dateStr, 11, "%02d/%02d/%02d",  mo, dy, y2); break; // MM/DD/YY
-    default: snprintf(dateStr, 11, "%02d.%02d.%04d",  dy, mo, y4); break; // DD.MM.YYYY
+    case 1:  // MM/DD/YYYY
+      write2Digits(dateStr, mo); dateStr[2] = '/';
+      write2Digits(dateStr + 3, dy); dateStr[5] = '/';
+      write4Digits(dateStr + 6, y4); dateStr[10] = '\0';
+      break;
+    case 2:  // YYYY-MM-DD
+      write4Digits(dateStr, y4); dateStr[4] = '-';
+      write2Digits(dateStr + 5, mo); dateStr[7] = '-';
+      write2Digits(dateStr + 8, dy); dateStr[10] = '\0';
+      break;
+    case 3:  // DD.MM.YY
+      write2Digits(dateStr, dy); dateStr[2] = '.';
+      write2Digits(dateStr + 3, mo); dateStr[5] = '.';
+      write2Digits(dateStr + 6, y2); dateStr[8] = '\0';
+      break;
+    case 4:  // MM/DD/YY
+      write2Digits(dateStr, mo); dateStr[2] = '/';
+      write2Digits(dateStr + 3, dy); dateStr[5] = '/';
+      write2Digits(dateStr + 6, y2); dateStr[8] = '\0';
+      break;
+    default: // DD.MM.YYYY
+      formatDateDmy(dateStr, dy, mo, y4);
+      break;
   }
   return true;
 }
@@ -689,7 +737,13 @@ void setup() {
     showFactoryScreen(); delay(900); factoryReset();
   }
 
-  loadConfig();
+  bool configOk = loadConfig();
+  if (!configOk) {
+    drawTopCentered(F("CFG"));
+    drawBottomText5x7Centered(F("ERROR"));
+    delay(1200);
+    mx.clear();
+  }
   applyBrightness();
   pwmStart();
 
@@ -753,9 +807,15 @@ void loop() {
       applyTimeConfig(false);
   }
 
-  // ⑦ Letzten bekannten Sync-Zeitstempel merken
+  // ⑦ Ersten erfolgreichen SNTP-Zeitstand als Sync-Zeitstempel merken
+  static bool hadValidTime = false;
   time_t nowt = time(nullptr);
-  if (nowt > 1700000000UL) lastSyncEpoch = nowt;
+  if (nowt > 1700000000UL) {
+    if (!hadValidTime && lastNtpProbeMs > 0) lastSyncEpoch = nowt;
+    hadValidTime = true;
+  } else {
+    hadValidTime = false;
+  }
 
   // ⑧a Scroll-Animation tick (~50 Hz während Transition)
   {
