@@ -14,7 +14,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - Reproduzierbarkeit des Builds verbessert: PlatformIO-Plattform und `MD_MAX72XX` sind fest gepinnt, lokale OTA-IP aus der Projektkonfiguration entfernt. (Ref: review-2026-04-28-build)
 - Projektspezifischen `npm run spell` mit `cspell`-Konfiguration ergänzt. (Ref: review-2026-04-28-spell)
 - CSpell-Dictionary `@cspell/dict-de-de` lokal als Projektabhängigkeit erfasst und `node_modules/` ignoriert, damit die Konfiguration `cspell-ext.json` sauber auflösen kann. (Ref: fix-2026-04-28-cspell)
-- PlatformIO-Default-Env auf `nodemcuv2` festgelegt, Serial-Upload explizit gemacht und störende `#warning`-/Python-Warnungen aus dem Build unterdrückt. (Ref: fix-2026-04-28-platformio)
+- PlatformIO-Default-Env auf `nodemcuv2_ota` festgelegt, Serial-Upload in `nodemcuv2` explizit gemacht und störende `#warning`-/Python-Warnungen aus dem Build unterdrückt. (Ref: fix-2026-04-28-platformio)
 
 ### Behoben
 - Web-UI zeigt den letzten NTP-Sync nicht mehr als laufend aktualisierte aktuelle Uhrzeit an. (Ref: review-2026-04-28-ntp-sync)
