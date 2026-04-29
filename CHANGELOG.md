@@ -15,8 +15,8 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - Projektspezifischen `npm run spell` mit `cspell`-Konfiguration ergänzt. (Ref: review-2026-04-28-spell)
 - CSpell-Dictionary `@cspell/dict-de-de` lokal als Projektabhängigkeit erfasst und `node_modules/` ignoriert, damit die Konfiguration `cspell-ext.json` sauber auflösen kann. (Ref: fix-2026-04-28-cspell)
 - PlatformIO-Default-Env auf `nodemcuv2_ota` festgelegt, Serial-Upload in `nodemcuv2` explizit gemacht und störende `#warning`-/Python-Warnungen aus dem Build unterdrückt. (Ref: fix-2026-04-28-platformio)
-- `delay(0)` in `chunk()` durch `yield()` ersetzt – verhindert Watchdog-Timeout bei großen HTML-Seiten. (Ref: review-2026-04-29-chunk-yield)
-- `NtpLogEntry` von `String` auf `char[]`-Buffer umgestellt – reduziert Heap-Fragmentierung im NTP-Log-Ringpuffer. (Ref: review-2026-04-29-ntplog-char)
+- `delay(0)` in `chunk()` durch `yield()` ersetzt – verhindert Watchdog-Timeout bei großen HTML-Seiten. (Ref: ea26b7a)
+- `NtpLogEntry` von `String` auf `char[]`-Buffer umgestellt – reduziert Heap-Fragmentierung im NTP-Log-Ringpuffer. (Ref: ea26b7a)
 
 ### Behoben
 - Web-UI zeigt den letzten NTP-Sync nicht mehr als laufend aktualisierte aktuelle Uhrzeit an. (Ref: review-2026-04-28-ntp-sync)
