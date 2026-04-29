@@ -106,11 +106,14 @@ struct WiFiManager {
 // ============================================================
 // NTP-Sync-Protokoll (Ringpuffer)
 // ============================================================
+#define NTP_LOG_HOST_LEN   64
+#define NTP_LOG_DETAIL_LEN 256
+
 struct NtpLogEntry {
   uint32_t timestampEpoch; // Unix-Zeit des Sync-Versuchs
-  String   host;
+  char     host[NTP_LOG_HOST_LEN];
   bool     success;
-  String   detail;
+  char     detail[NTP_LOG_DETAIL_LEN];
 };
 
 extern Config     cfg;

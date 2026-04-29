@@ -10,8 +10,8 @@ extern DNSServer        dnsServer;
 // ============================================================
 // Web-UI: HTML-Hilfsfunktionen (Streaming)
 // ============================================================
-static void chunk(const String& s)              { server.sendContent(s); delay(0); }
-static void chunk(const __FlashStringHelper* s) { server.sendContent(s); delay(0); }
+static void chunk(const String& s)              { server.sendContent(s); yield(); }
+static void chunk(const __FlashStringHelper* s) { server.sendContent(s); yield(); }
 
 // ============================================================
 // HTML-Escape / Form-Helpers

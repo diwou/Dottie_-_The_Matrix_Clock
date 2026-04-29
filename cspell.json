@@ -95,6 +95,7 @@
     "mDNS",
     "nodemcuv",
     "ntpclock",
+    "ntplog",
     "ntptest",
     "pio",
     "sntp",

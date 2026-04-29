@@ -217,9 +217,9 @@ static bool cacheGet(const String& host, IPAddress& ip, uint32_t& ageSec) {
 
 static void ntpLogAdd(uint32_t epoch, const String& host, bool ok, const String& detail) {
   ntpLog[ntpLogHead].timestampEpoch = epoch;
-  ntpLog[ntpLogHead].host    = host;
+  strlcpy(ntpLog[ntpLogHead].host, host.c_str(), NTP_LOG_HOST_LEN);
   ntpLog[ntpLogHead].success = ok;
-  ntpLog[ntpLogHead].detail  = detail;
+  strlcpy(ntpLog[ntpLogHead].detail, detail.c_str(), NTP_LOG_DETAIL_LEN);
   ntpLogHead  = (ntpLogHead + 1) % NTP_LOG_ENTRIES;
   if (ntpLogCount < NTP_LOG_ENTRIES) ntpLogCount++;
 }
