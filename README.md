@@ -57,6 +57,9 @@ pio run -e dottie_esp32s3
 # OTA-Upload (IP per CLI angeben)
 pio run -t upload -e dottie_esp32s3_ota --upload-port 10.10.60.125
 
+# Native USB am ESP32-S3
+pio run -t upload -e dottie_esp32s3 --upload-port /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_94-A9-90-2F-91-A0-if00
+
 # Serieller Monitor (USB-Fallback, 115200 Baud)
 pio device monitor
 ```

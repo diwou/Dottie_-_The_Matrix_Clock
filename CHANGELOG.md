@@ -11,6 +11,8 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 ### Neu
 - Firmware und Build-Konfiguration auf die neue ESP32-S3-WROOM-1-N16R8-Platine vorbereitet; Display-, Reset- und I2C-Pins werden zentral per Build-Flags gesetzt. (Ref: board-2026-05-10-esp32s3)
 - Factory-Reset und I2C auf die gemeldete Verdrahtung angepasst: Reset auf `IO9`, SDA auf `IO38`, SCL auf `IO39`. (Ref: board-2026-05-10-pinfix)
+- S3-Upload auf native USB-CDC umgestellt, damit PlatformIO nicht mehr an RTS/DTR-Reset auf `ttyACM0` scheitert. (Ref: board-2026-05-10-usb-upload)
+- Upload-Port auf den stabilen Espressif-by-id-Pfad umgestellt, damit die USB-Enumeration nicht mehr an wechselnden `ttyACM`-Namen hängt. (Ref: board-2026-05-10-usb-byid)
 
 ### Geändert
 - Projektregeln, Release-Dokumentation und `.gitignore` auf dieses Repository abgestimmt; `AGENTS.md` ist nicht mehr ignoriert und kann versioniert werden. (Ref: review-2026-04-28-regeln)
