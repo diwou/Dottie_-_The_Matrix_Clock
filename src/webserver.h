@@ -56,7 +56,7 @@ static void handleRoot() {
   bool inAP = WiFi.getMode() & WIFI_AP;
   String lux_s = isfinite(luxHold) ? (String(luxHold, 1) + " lx") : String("-");
   String bl_s = String((int)displayIntensityApplied) + " / 15";
-  String sensor_s = vemlOk ? F("OK") : F("nicht gefunden");
+  String sensor_s = vemlOk ? F("OK") : vemlDiag;
   String auto_s = cfg.auto_brightness ? F("aktiv") : F("aus");
 
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
@@ -222,7 +222,7 @@ static void handleRoot() {
           "var sa=document.getElementById('v-auto');"
           "if(sa)sa.textContent=d.auto_brightness?'aktiv':'aus';"
           "var ss=document.getElementById('v-sensor');"
-          "if(ss)ss.textContent=d.sensor_ok?'OK':'nicht gefunden';"
+          "if(ss)ss.textContent=d.sensor_msg|| (d.sensor_ok?'OK':'nicht gefunden');"
           "espLocalSec=d.localsec||0;espFetchMs=Date.now();"
           "var c2=document.getElementById('dm_date');"
           "if(c2)dF5(c2,d.date,3.2,1.1,'#CC6A00','#130d03','#AA5000');"
@@ -837,6 +837,7 @@ static void handleApiStatus() {
   json += String(F("\"brightness\":")) + displayIntensityApplied + F(",");
   json += String(F("\"auto_brightness\":")) + (cfg.auto_brightness ? F("true") : F("false")) + F(",");
   json += String(F("\"sensor_ok\":")) + (vemlOk ? F("true") : F("false")) + F(",");
+  json += String(F("\"sensor_msg\":\"")) + jsonEscape(vemlDiag) + F("\",");
   json += String(F("\"nextsync\":")) + nextSyncInSec() + F(",");
   json += String(F("\"heap\":")) + ESP.getFreeHeap() + F(",");
   json += String(F("\"rssi\":")) + (WiFi.status()==WL_CONNECTED ? WiFi.RSSI() : 0);

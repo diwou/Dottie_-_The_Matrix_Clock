@@ -66,6 +66,7 @@ static char     lastDispTime[9]  = "";  // für Invalidierung nach mx.clear()
 static char     lastDispDate[11] = "";
 static uint32_t bootMs          = 0;
 static bool     vemlOk          = false;
+static String   vemlDiag        = F("nicht gefunden");
 static unsigned long lastLuxMs  = 0;
 static unsigned long luxWarmupUntilMs = 0;
 static float    luxFilt         = NAN;
@@ -167,14 +168,22 @@ static void updateBrightnessFromLux(bool force = false) {
 
 static void setupLightSensor() {
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  Wire.setClock(100000);
+
+  uint8_t probe = 0;
+  Wire.beginTransmission(VEML7700_I2CADDR_DEFAULT);
+  probe = Wire.endTransmission(true);
+
   vemlOk = veml.begin();
   if (vemlOk) {
     veml.setGain(VEML7700_GAIN_2);
     veml.setIntegrationTime(VEML7700_IT_50MS);
     veml.interruptEnable(false);
     luxWarmupUntilMs = millis() + 1500;
+    vemlDiag = F("OK");
   } else {
     luxWarmupUntilMs = 0;
+    vemlDiag = String(F("I2C probe=")) + probe + F(" @0x10");
   }
 }
 

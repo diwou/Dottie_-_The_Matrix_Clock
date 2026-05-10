@@ -14,6 +14,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - S3-Upload auf native USB-CDC umgestellt, damit PlatformIO nicht mehr an RTS/DTR-Reset auf `ttyACM0` scheitert. (Ref: board-2026-05-10-usb-upload)
 - Upload-Port auf den stabilen Espressif-by-id-Pfad umgestellt, damit die USB-Enumeration nicht mehr an wechselnden `ttyACM`-Namen hängt. (Ref: board-2026-05-10-usb-byid)
 - VEML7700-Lichtsensor angebunden und als optionale automatische Helligkeitsregelung im Webinterface eingebaut. (Ref: board-2026-05-10-veml7700)
+- I2C-Initialisierung des VEML7700 meldet jetzt eine konkrete Diagnose, wenn der Sensor nicht antwortet. (Ref: board-2026-05-10-veml7700-diag)
 
 ### Geändert
 - Projektregeln, Release-Dokumentation und `.gitignore` auf dieses Repository abgestimmt; `AGENTS.md` ist nicht mehr ignoriert und kann versioniert werden. (Ref: review-2026-04-28-regeln)
