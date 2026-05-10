@@ -55,7 +55,10 @@ Die 16 Module bilden eine SPI-Kette: TOP (Module 0–7, rechts nach links) und B
 pio run -e dottie_esp32s3
 
 # OTA-Upload (IP per CLI angeben)
-pio run -t upload -e dottie_esp32s3_ota --upload-port 10.10.60.125
+pio run -t upload -e dottie_esp32s3_ota --upload-port dottie.local
+
+# Wenn das Board nur im AP-Modus laeuft:
+# pio run -t upload -e dottie_esp32s3_ota --upload-port 192.168.4.1
 
 # VS Codium: Task "PIO OTA Upload (ESP32-S3)"
 # (nutzt das OTA-Env direkt und umgeht den fehlerhaften Upload-Dialog)

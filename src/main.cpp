@@ -682,6 +682,8 @@ static void startCaptivePortal() {
 // ============================================================
 static void setupOTA() {
   if (!cfg.ota_enabled) return;
+  static bool otaReady = false;
+  if (otaReady) return;
 
   ArduinoOTA.setHostname("dottie");
   if (cfg.ota_password.length())
@@ -709,6 +711,7 @@ static void setupOTA() {
     drawBottomText5x7Centered(String(err));
   });
   ArduinoOTA.begin();
+  otaReady = true;
 }
 
 #include "webserver.h"
@@ -927,6 +930,7 @@ void setup() {
     }
     startCaptivePortal();
     setupWeb();
+    setupOTA();
 #if defined(ARDUINO_ARCH_ESP32)
     startWebServerTask();
 #endif

@@ -27,6 +27,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - `NtpLogEntry` von `String` auf `char[]`-Buffer umgestellt – reduziert Heap-Fragmentierung im NTP-Log-Ringpuffer. (Ref: ea26b7a)
 
 ### Behoben
+- OTA startet jetzt auch im AP-Modus, und das OTA-Target zeigt per Default auf `dottie.local` statt auf eine harte LAN-IP. (Ref: board-2026-05-10-ota-target)
 - VEML7700 wird bei einem anfänglichen I2C-NACK jetzt später erneut angefragt, damit die Helligkeitsregelung nicht an einem einzelnen Startfehler hängen bleibt. (Ref: board-2026-05-10-veml7700-retry)
 - Webserver läuft auf dem ESP32-S3 jetzt in einem eigenen Task, damit das Laden der Web-UI den Display-Loop nicht mehr ausbremst. (Ref: board-2026-05-10-webtask)
 - Für VS Codium gibt es jetzt eine direkte OTA-Task, die den PlatformIO-Upload ohne den fehleranfälligen Upload-Dialog ausführt. (Ref: board-2026-05-10-vscodium-ota)
