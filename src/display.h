@@ -9,6 +9,18 @@ extern MD_MAX72XX mx;
 static const uint8_t MAP_TOP[8]    = {7,6,5,4,3,2,1,0};
 static const uint8_t MAP_BOTTOM[8] = {8,9,10,11,12,13,14,15};
 
+// Obere 8 Module sind um 180° gedreht eingebaut.
+static inline uint8_t reverseBits8(uint8_t b) {
+  b = (uint8_t)((b & 0xF0) >> 4) | (uint8_t)((b & 0x0F) << 4);
+  b = (uint8_t)((b & 0xCC) >> 2) | (uint8_t)((b & 0x33) << 2);
+  b = (uint8_t)((b & 0xAA) >> 1) | (uint8_t)((b & 0x55) << 1);
+  return b;
+}
+
+static inline uint8_t rotate180Byte(uint8_t b) {
+  return reverseBits8(b);
+}
+
 // Orientierung der unteren Zeile
 #define BOTTOM_MIRROR_WHOLE_ROW    0
 #define BOTTOM_REVERSE_COLS_IN_DEV 0
@@ -96,7 +108,7 @@ static void drawTopCharScrollFrame(uint8_t pos, char from, char to, uint8_t step
 
   // step=0 → sofort To anzeigen (fertig)
   if (step == 0 || totalSteps == 0) {
-    for (uint8_t row = 0; row < 8; row++) mx.setRow(dev, row, gTo[row]);
+    for (uint8_t row = 0; row < 8; row++) mx.setRow(dev, row, rotate180Byte(gTo[7 - row]));
     return;
   }
 
@@ -117,7 +129,7 @@ static void drawTopCharScrollFrame(uint8_t pos, char from, char to, uint8_t step
       rowData[row] = (toRow < 8) ? gTo[toRow] : 0;
     }
   }
-  for (uint8_t row = 0; row < 8; row++) mx.setRow(dev, row, rowData[row]);
+  for (uint8_t row = 0; row < 8; row++) mx.setRow(dev, row, rotate180Byte(rowData[7 - row]));
 }
 
 // Direkt zeichnen (ohne Scroll), z.B. für Init / AP-Modus

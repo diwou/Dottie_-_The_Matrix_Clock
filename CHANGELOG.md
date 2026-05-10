@@ -25,6 +25,8 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - `NtpLogEntry` von `String` auf `char[]`-Buffer umgestellt – reduziert Heap-Fragmentierung im NTP-Log-Ringpuffer. (Ref: ea26b7a)
 
 ### Behoben
+- Die oberen 8 Matrix-Module werden jetzt vor dem Zeichnen um 180° gedreht, damit die gemeldete Einbaulage zur Firmware passt. (Ref: board-2026-05-10-top-rotate180)
+- Erfolgreiche NTP-Antworten setzen die Systemzeit jetzt sofort, statt nur den späteren SNTP-Sync abzuwarten. (Ref: board-2026-05-10-ntp-fast-sync)
 - Matrix-Ansteuerung auf direkten GPIO-Modus umgestellt, damit `CLK`, `DIN` und `CS` ohne ESP32-S3-Hardware-SPI-Host direkt über die gemeldeten GPIOs laufen. (Ref: board-2026-05-10-direct-pin)
 - Matrix-Ansteuerung auf den HSPI-Host des ESP32-S3 umgestellt, damit der externe Clock-Pin nicht mehr über den FSPI-Host läuft. (Ref: board-2026-05-10-hspi)
 - Matrix-Ansteuerung auf einen eigenen ESP32-S3-SPI-Bus umgestellt, damit `CLK` sauber auf `GPIO12` statt auf den geteilten Default-Bus läuft. (Ref: board-2026-05-10-displayspi)

@@ -738,11 +738,14 @@ static void runPendingNtpTest() {
   // Schritt 2: NTP UDP-Probe
   String probeDetail;
   bool ok = false;
+  uint32_t txSec = 0;
   if (dnsOk) {
-    ok = ntpProbeByIp(resolvedIp, NTP_PROBE_TIMEOUT_MS * 2, &probeDetail);
+    ok = ntpProbeByIp(resolvedIp, NTP_PROBE_TIMEOUT_MS * 2, &probeDetail, &txSec);
   } else {
     probeDetail = F("DNS fehlgeschlagen");
   }
+
+  if (ok && txSec) syncSystemTimeFromNtp(txSec);
 
   lastTestHost   = host;
   lastTestResult = ok ? F("OK") : F("FAIL");
