@@ -69,6 +69,8 @@ static bool     vemlOk          = false;
 static String   vemlDiag        = F("nicht gefunden");
 static unsigned long lastLuxMs  = 0;
 static unsigned long luxWarmupUntilMs = 0;
+static unsigned long vemlRetryAtMs = 0;
+static uint8_t      vemlRetryCount = 0;
 static float    luxFilt         = NAN;
 static float    luxHold         = NAN;
 static float    luxCurrent      = NAN;
@@ -169,22 +171,38 @@ static void updateBrightnessFromLux(bool force = false) {
 static void setupLightSensor() {
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   Wire.setClock(100000);
+  Wire.setTimeOut(50);
 
   uint8_t probe = 0;
   Wire.beginTransmission(VEML7700_I2CADDR_DEFAULT);
   probe = Wire.endTransmission(true);
 
-  vemlOk = veml.begin();
+  vemlOk = (probe == 0) && veml.begin();
   if (vemlOk) {
     veml.setGain(VEML7700_GAIN_2);
     veml.setIntegrationTime(VEML7700_IT_50MS);
     veml.interruptEnable(false);
     luxWarmupUntilMs = millis() + 1500;
+    vemlRetryAtMs = 0;
+    vemlRetryCount = 0;
     vemlDiag = F("OK");
   } else {
     luxWarmupUntilMs = 0;
+    vemlRetryAtMs = millis() + 3000;
+    vemlRetryCount++;
     vemlDiag = String(F("I2C probe=")) + probe + F(" @0x10");
   }
+}
+
+static void retryLightSensorIfNeeded() {
+  if (vemlOk) return;
+  if (!vemlRetryAtMs) return;
+  if ((long)(millis() - vemlRetryAtMs) < 0) return;
+  if (vemlRetryCount > 10) {
+    vemlRetryAtMs = 0;
+    return;
+  }
+  setupLightSensor();
 }
 
 // ============================================================
@@ -954,6 +972,7 @@ void loop() {
   }
 
   // ⑥b Umgebungslicht -> Displayhelligkeit
+  retryLightSensorIfNeeded();
   updateBrightnessFromLux();
 
   // ⑦ Ersten erfolgreichen SNTP-Zeitstand als Sync-Zeitstempel merken
