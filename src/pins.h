@@ -15,13 +15,13 @@
 #endif
 
 #ifndef FACTORY_RESET_PIN
-  #define FACTORY_RESET_PIN 0
+  #define FACTORY_RESET_PIN 9
 #endif
 
 #ifndef I2C_SDA_PIN
-  #define I2C_SDA_PIN 8
+  #define I2C_SDA_PIN 38
 #endif
 
 #ifndef I2C_SCL_PIN
-  #define I2C_SCL_PIN 9
+  #define I2C_SCL_PIN 39
 #endif

@@ -27,9 +27,9 @@ Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8
 | MCU | ESP32-S3-WROOM-1-N16R8 |
 | Display | 16× MAX7219 LED-Matrix-Module (FC16_HW) |
 | Display-Pins | DIN = GPIO11, CLK = GPIO12, CS/LOAD = GPIO10 |
-| I2C | SDA = GPIO8, SCL = GPIO9 für VEML7700 und DS3231S (noch nicht firmwareseitig genutzt) |
+| I2C | SDA = GPIO38, SCL = GPIO39 für VEML7700 und DS3231S (noch nicht firmwareseitig genutzt) |
 | Anordnung | 2 Reihen: TOP (8 Module, 8×8 px) + BOTTOM (8 Module, 5×7 px) |
-| Reset-Button | GPIO0 gegen GND, 5 Sekunden halten |
+| Reset-Button | GPIO9 gegen GND, 5 Sekunden halten |
 
 ### Verdrahtung
 
