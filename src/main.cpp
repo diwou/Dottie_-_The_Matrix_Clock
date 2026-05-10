@@ -67,6 +67,7 @@ static char     lastDispDate[11] = "";
 static uint32_t bootMs          = 0;
 static bool     vemlOk          = false;
 static String   vemlDiag        = F("nicht gefunden");
+static String   i2cDiag         = F("nicht gefunden");
 static unsigned long lastLuxMs  = 0;
 static unsigned long luxWarmupUntilMs = 0;
 static unsigned long vemlRetryAtMs = 0;
@@ -177,6 +178,12 @@ static void setupLightSensor() {
   Wire.beginTransmission(VEML7700_I2CADDR_DEFAULT);
   probe = Wire.endTransmission(true);
 
+  uint8_t dsProbe = 0;
+  Wire.beginTransmission(0x68);
+  dsProbe = Wire.endTransmission(true);
+
+  i2cDiag = String(F("VEML=")) + probe + F(" @0x10, DS3231=") + dsProbe + F(" @0x68");
+
   vemlOk = (probe == 0) && veml.begin();
   if (vemlOk) {
     veml.setGain(VEML7700_GAIN_2);
@@ -185,12 +192,12 @@ static void setupLightSensor() {
     luxWarmupUntilMs = millis() + 1500;
     vemlRetryAtMs = 0;
     vemlRetryCount = 0;
-    vemlDiag = F("OK");
+    vemlDiag = i2cDiag + F(" | VEML OK");
   } else {
     luxWarmupUntilMs = 0;
     vemlRetryAtMs = millis() + 3000;
     vemlRetryCount++;
-    vemlDiag = String(F("I2C probe=")) + probe + F(" @0x10");
+    vemlDiag = i2cDiag + F(" | VEML NACK");
   }
 }
 
