@@ -58,6 +58,7 @@
     "LittleFS",
     "littlefs",
     "Matrix",
+    "displayspi",
     "Metadaten",
     "Metadatenänderungen",
     "NTP",

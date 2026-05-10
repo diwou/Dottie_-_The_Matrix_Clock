@@ -32,7 +32,8 @@ extern "C" {
 // ============================================================
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
 #define MAX_DEVICES   16
-MD_MAX72XX mx(HARDWARE_TYPE, DISPLAY_DATA_PIN, DISPLAY_CLK_PIN, DISPLAY_CS_PIN, MAX_DEVICES);
+SPIClass displaySPI(FSPI);
+MD_MAX72XX mx(HARDWARE_TYPE, displaySPI, DISPLAY_CS_PIN, MAX_DEVICES);
 
 #include "config.h"
 #include "version_generated.h"
@@ -730,6 +731,7 @@ void setup() {
   bootMs = millis();
   pinMode(FACTORY_RESET_PIN, INPUT);
 
+  displaySPI.begin(DISPLAY_CLK_PIN, -1, DISPLAY_DATA_PIN, DISPLAY_CS_PIN);
   mx.begin();
   mx.control(MD_MAX72XX::TEST, MD_MAX72XX::OFF);
   mx.control(MD_MAX72XX::INTENSITY, 1);
