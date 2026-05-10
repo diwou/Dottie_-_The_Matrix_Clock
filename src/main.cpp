@@ -32,7 +32,7 @@ extern "C" {
 // ============================================================
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
 #define MAX_DEVICES   16
-SPIClass displaySPI(FSPI);
+SPIClass displaySPI(HSPI);
 MD_MAX72XX mx(HARDWARE_TYPE, displaySPI, DISPLAY_CS_PIN, MAX_DEVICES);
 
 #include "config.h"
