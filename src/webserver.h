@@ -730,7 +730,7 @@ static void runPendingNtpTest() {
   // manchmal mehrere loop()-Iterationen bis der lwIP-Stack antwortet
   for (uint8_t attempt = 0; attempt < 8 && !dnsOk; attempt++) {
     // Zwischen Versuchen loop()-Zeit lassen damit lwIP arbeiten kann
-    for (uint8_t w = 0; w < 20; w++) { delay(10); yield(); server.handleClient(); }
+    for (uint8_t w = 0; w < 20; w++) { delay(10); yield(); }
     if (WiFi.hostByName(host.c_str(), resolvedIp)) {
       dnsOk = true;
       resolveLog = String(F("hostByName:OK ip=")) + resolvedIp.toString()

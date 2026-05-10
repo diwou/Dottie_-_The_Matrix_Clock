@@ -624,6 +624,21 @@ static bool connectWiFiSTA(bool showUi = true) {
 // ============================================================
 ClockWebServer server(WEB_PORT);
 DNSServer        dnsServer;
+#if defined(ARDUINO_ARCH_ESP32)
+static TaskHandle_t g_webTaskHandle = nullptr;
+static void webServerTask(void* arg) {
+  (void)arg;
+  for (;;) {
+    if (WiFi.getMode() & WIFI_AP) dnsServer.processNextRequest();
+    server.handleClient();
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }
+}
+static void startWebServerTask() {
+  if (g_webTaskHandle) return;
+  xTaskCreatePinnedToCore(webServerTask, "web", 8192, nullptr, 1, &g_webTaskHandle, 0);
+}
+#endif
 
 static void startCaptivePortal() {
   WiFi.mode(WIFI_AP);
@@ -768,6 +783,10 @@ static bool handleRuntimeResetHold() {
     uint32_t leftMs  = (held >= FACTORY_RESET_HOLD_MS) ? 0 : FACTORY_RESET_HOLD_MS - held;
     showResetCountdown((uint8_t)((leftMs + 999) / 1000));
     if (held >= FACTORY_RESET_HOLD_MS) { showFactoryScreen(); delay(600); factoryReset(); }
+#if !defined(ARDUINO_ARCH_ESP32)
+    server.handleClient();
+    if (WiFi.getMode() & WIFI_AP) dnsServer.processNextRequest();
+#endif
     return true;
   }
 
@@ -779,6 +798,10 @@ static bool handleRuntimeResetHold() {
       lastDispTime[0] = '\0';
       lastDispDate[0] = '\0';
     }
+#if !defined(ARDUINO_ARCH_ESP32)
+    server.handleClient();
+    if (WiFi.getMode() & WIFI_AP) dnsServer.processNextRequest();
+#endif
     return true;
   }
   return false;
@@ -872,6 +895,9 @@ void setup() {
     MDNS.begin("dottie");
     setupOTA();
     setupWeb();
+#if defined(ARDUINO_ARCH_ESP32)
+    startWebServerTask();
+#endif
     applyTimeConfig(true);
     showTopMarquee(String(F("IP:")) + WiFi.localIP().toString(), cfg.ip_show_sec);
   } else {
@@ -883,6 +909,9 @@ void setup() {
     }
     startCaptivePortal();
     setupWeb();
+#if defined(ARDUINO_ARCH_ESP32)
+    startWebServerTask();
+#endif
     wifiMgr.state = ClockWiFiState::AP_MODE;
     // AP-IP als Laufschrift damit man weiß wohin verbinden
     showTopMarquee(String(F("AP ")) + WiFi.softAPIP().toString(), cfg.ip_show_sec);
@@ -897,10 +926,13 @@ void setup() {
 void loop() {
   // ① Factory-Reset-Button prüfen
   if (handleRuntimeResetHold()) {
-    server.handleClient();
-    if (WiFi.getMode() & WIFI_AP) dnsServer.processNextRequest();
     return;
   }
+
+#if !defined(ARDUINO_ARCH_ESP32)
+  if (WiFi.getMode() & WIFI_AP) dnsServer.processNextRequest();
+  server.handleClient();
+#endif
 
   // ② OTA verarbeiten
   if (cfg.ota_enabled) ArduinoOTA.handle();
@@ -908,11 +940,7 @@ void loop() {
   // ③ mDNS verarbeiten
   clockMdnsUpdate();
 
-  // ④ DNS (Captive Portal) / Web
-  if (WiFi.getMode() & WIFI_AP) dnsServer.processNextRequest();
-  server.handleClient();
-
-  // ④b Asynchronen NTP-Test ausführen (muss in loop() sein, nicht im Web-Handler)
+  // ④ Asynchronen NTP-Test ausführen (muss in loop() sein, nicht im Web-Handler)
   runPendingNtpTest();
 
   // ⑤ WiFi-Reconnect State Machine
