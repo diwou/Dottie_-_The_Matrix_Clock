@@ -1,6 +1,6 @@
 # Dottie – The Matrix Clock
 
-Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MAX7219-LED-Matrix-Modulen. Zeigt Zeit und Datum mit Scroll-Animation, Weboberfläche, OTA-Updates und automatischer Zeitsynchronisation.
+Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MAX7219-LED-Matrix-Modulen. Zeigt Zeit und Datum mit Scroll-Animation, Weboberfläche, OTA-Updates, automatischer Zeitsynchronisation und optionaler Helligkeitsregelung per VEML7700.
 
 - Aktuelle Version: `1.5.0` (Development-Builds zeigen zusätzlich den Codeberg-Kurz-Hash)
 - Repository: `https://codeberg.org/diwou/Dottie_-_The_Matrix_Clock`
@@ -12,7 +12,7 @@ Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8
 
 - **NTP-Synchronisation** mit 3 konfigurierbaren Fallback-Servern
 - **Zeitzone & DST**: UTC-Offset, EU/US/Custom-Sommerzeit
-- **Display**: 24h/12h-Modus, 5 Datumsformate, einstellbare Helligkeit, Scroll-Animation
+- **Display**: 24h/12h-Modus, 5 Datumsformate, einstellbare Helligkeit, Scroll-Animation, VEML7700-Autohelligkeit
 - **Web-UI**: Responsive HTML5-Oberfläche mit Live-Display-Vorschau
 - **OTA-Updates**: Kabellose Firmware-Updates über `dottie.local`
 - **WiFi-Resilienz**: State-Machine mit exponentiellem Backoff, AP-Fallback (Captive Portal)
@@ -27,7 +27,7 @@ Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8
 | MCU | ESP32-S3-WROOM-1-N16R8 |
 | Display | 16× MAX7219 LED-Matrix-Module (FC16_HW) |
 | Display-Pins | DIN = GPIO11, CLK = GPIO12, CS/LOAD = GPIO10 |
-| I2C | SDA = GPIO38, SCL = GPIO39 für VEML7700 und DS3231S (noch nicht firmwareseitig genutzt) |
+| I2C | SDA = GPIO38, SCL = GPIO39 für VEML7700 und DS3231S |
 | Anordnung | 2 Reihen: TOP (8 Module, 8×8 px) + BOTTOM (8 Module, 5×7 px) |
 | Reset-Button | GPIO9 gegen GND, 5 Sekunden halten |
 
@@ -69,6 +69,7 @@ pio device monitor
 | Bibliothek | Version |
 |---|---|
 | `majicdesigns/MD_MAX72XX` | ^3.5.1 |
+| `adafruit/Adafruit VEML7700 Library` | ^2.1.6 |
 | ESP32 Arduino Core (PlatformIO `espressif32`) | – |
 
 ---
@@ -126,6 +127,7 @@ Die Konfiguration wird als `Key=Value`-Datei auf LittleFS unter `/cfg.txt` gespe
 | `show_24h` | 1 | 24h-Modus (0 = 12h mit AM/PM) |
 | `show_seconds` | 1 | Sekunden anzeigen (nur 24h) |
 | `brightness` | 1 | Display-Helligkeit (0–15) |
+| `auto_brightness` | 0 | Helligkeit automatisch per VEML7700 regeln |
 | `scroll_enabled` | 1 | Scroll-Animation beim Ziffernwechsel |
 | `pwm_duty` | 10 | Software-Dimmen (10 = aus, 1–5 = 10–50 % Abdunklung) |
 

@@ -16,8 +16,11 @@
 #include <Ticker.h>
 #include <time.h>
 #include <sys/time.h>
+#include <math.h>
 #include <MD_MAX72xx.h>
 #include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_VEML7700.h>
 #include <LittleFS.h>
 
 extern "C" {
@@ -44,6 +47,7 @@ static const char FW_VERSION[] PROGMEM = APP_VERSION_LABEL;
 
 Config     cfg;
 WiFiManager wifiMgr;
+Adafruit_VEML7700 veml;
 
 // ============================================================
 // NTP-Sync-Protokoll (Ringpuffer)
@@ -61,6 +65,13 @@ static time_t   lastSyncEpoch   = 0;
 static char     lastDispTime[9]  = "";  // für Invalidierung nach mx.clear()
 static char     lastDispDate[11] = "";
 static uint32_t bootMs          = 0;
+static bool     vemlOk          = false;
+static unsigned long lastLuxMs  = 0;
+static unsigned long luxWarmupUntilMs = 0;
+static float    luxFilt         = NAN;
+static float    luxHold         = NAN;
+static float    luxCurrent      = NAN;
+static uint8_t  displayIntensityApplied = 255;
 
 // Letzter manueller Test (für Web-UI)
 static String   lastTestHost;
@@ -82,9 +93,89 @@ static String ipOrLabel(const IPAddress& ip, const char* label = "(nicht gesetzt
   return (ip == (IPAddress)0U) ? String(label) : ip.toString();
 }
 
-static inline void applyBrightness() {
-  if (cfg.brightness > 15) cfg.brightness = 15;
-  mx.control(MD_MAX72XX::INTENSITY, cfg.brightness);
+static inline void applyBrightness(uint8_t intensity) {
+  if (intensity > 15) intensity = 15;
+  if (displayIntensityApplied == intensity) return;
+  displayIntensityApplied = intensity;
+  mx.control(MD_MAX72XX::INTENSITY, intensity);
+}
+
+static inline void applyConfiguredBrightness() {
+  applyBrightness(cfg.brightness);
+}
+
+static uint8_t luxToBrightness(float lux) {
+  constexpr float LUX_MIN = 0.2f;
+  constexpr float LUX_MAX = 235.0f;
+  constexpr float GAMMA_C  = 0.65f;
+
+  if (!isfinite(lux)) return cfg.brightness;
+  if (lux < LUX_MIN) lux = LUX_MIN;
+  if (lux > LUX_MAX) lux = LUX_MAX;
+
+  float x = (lux - LUX_MIN) / (LUX_MAX - LUX_MIN);
+  float y = powf(x, GAMMA_C);
+  int intensity = (int)lroundf(y * 15.0f);
+  if (intensity < 1) intensity = 1;
+  if (intensity > 15) intensity = 15;
+  return (uint8_t)intensity;
+}
+
+static void updateBrightnessFromLux(bool force = false) {
+  if (!vemlOk || !cfg.auto_brightness) {
+    applyConfiguredBrightness();
+    return;
+  }
+
+  unsigned long now = millis();
+  if (!force && (long)(now - luxWarmupUntilMs) < 0) {
+    applyConfiguredBrightness();
+    return;
+  }
+
+  if (!force && now - lastLuxMs < 250) return;
+  lastLuxMs = now;
+
+  float lux = veml.readLux();
+  if (!isfinite(lux) || lux < 0.0f) {
+    applyConfiguredBrightness();
+    return;
+  }
+  luxCurrent = lux;
+
+  if (!isfinite(luxFilt)) luxFilt = lux;
+  else {
+    float a = (lux > luxFilt) ? 0.55f : 0.12f;
+    luxFilt = (1.0f - a) * luxFilt + a * lux;
+  }
+
+  const float FAST_DELTA = 8.0f;
+  if (!isfinite(luxHold)) {
+    luxHold = luxFilt;
+  } else {
+    float d = luxFilt - luxHold;
+    if (fabsf(d) >= FAST_DELTA) {
+      luxHold = luxFilt;
+    } else {
+      if (luxFilt > luxHold + 1.2f) luxHold = luxFilt;
+      else if (luxFilt < luxHold - 1.2f) luxHold = luxFilt;
+    }
+  }
+
+  applyBrightness(luxToBrightness(luxHold));
+}
+
+static void setupLightSensor() {
+  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  vemlOk = veml.begin();
+  if (vemlOk) {
+    veml.setGain(VEML7700_GAIN_2);
+    veml.setIntegrationTime(VEML7700_IT_50MS);
+    veml.interruptEnable(false);
+    luxWarmupUntilMs = millis() + 1500;
+  } else {
+    luxWarmupUntilMs = 0;
+  }
 }
 
 // ============================================================
@@ -760,7 +851,9 @@ void setup() {
     delay(1200);
     mx.clear();
   }
-  applyBrightness();
+  setupLightSensor();
+  applyConfiguredBrightness();
+  updateBrightnessFromLux(true);
   pwmStart();
 
   bool haveCreds = cfg.sta_ssid.length() > 0;
@@ -822,6 +915,9 @@ void loop() {
     if (!lastNtpProbeMs || millis() - lastNtpProbeMs > intervalMs)
       applyTimeConfig(false);
   }
+
+  // ⑥b Umgebungslicht -> Displayhelligkeit
+  updateBrightnessFromLux();
 
   // ⑦ Ersten erfolgreichen SNTP-Zeitstand als Sync-Zeitstempel merken
   static bool hadValidTime = false;

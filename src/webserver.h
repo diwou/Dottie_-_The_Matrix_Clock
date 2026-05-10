@@ -54,6 +54,10 @@ static const char* dstModeLabel(uint8_t m) {
 // ============================================================
 static void handleRoot() {
   bool inAP = WiFi.getMode() & WIFI_AP;
+  String lux_s = isfinite(luxHold) ? (String(luxHold, 1) + " lx") : String("-");
+  String bl_s = String((int)displayIntensityApplied) + " / 15";
+  String sensor_s = vemlOk ? F("OK") : F("nicht gefunden");
+  String auto_s = cfg.auto_brightness ? F("aktiv") : F("aus");
 
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, F("text/html"), "");
@@ -211,6 +215,14 @@ static void handleRoot() {
           "if(u)u.textContent=d.uptime;"
           "var ns=document.getElementById('next_sync');"
           "if(ns&&d.nextsync!==undefined)ns.textContent=d.nextsync+'s';"
+          "var lux=document.getElementById('v-lux');"
+          "if(lux)lux.textContent=d.lux>=0?d.lux.toFixed(1)+' lx':'-';"
+          "var bl=document.getElementById('v-bl');"
+          "if(bl)bl.textContent=d.brightness+' / 15';"
+          "var sa=document.getElementById('v-auto');"
+          "if(sa)sa.textContent=d.auto_brightness?'aktiv':'aus';"
+          "var ss=document.getElementById('v-sensor');"
+          "if(ss)ss.textContent=d.sensor_ok?'OK':'nicht gefunden';"
           "espLocalSec=d.localsec||0;espFetchMs=Date.now();"
           "var c2=document.getElementById('dm_date');"
           "if(c2)dF5(c2,d.date,3.2,1.1,'#CC6A00','#130d03','#AA5000');"
@@ -462,12 +474,23 @@ static void handleRoot() {
         String(F("<option value='3'")) + selected(cfg.date_fmt==3) + F(">DD.MM.YY (07.03.26)</option>") +
         String(F("<option value='4'")) + selected(cfg.date_fmt==4) + F(">MM/DD/YY (03/07/26)</option>") +
         F("</select>"));
+  chunk(F("<h3>Lichtstatus</h3>"));
+  chunk(String(F("<div class='stat'><b>Lux:</b> <span id='v-lux'>")) + lux_s +
+        F("</span> &nbsp; <b>Sensor:</b> <span id='v-sensor'>") + sensor_s +
+        F("</span> &nbsp; <b>Auto:</b> <span id='v-auto'>") + auto_s +
+        F("</span> &nbsp; <b>Helligkeit:</b> <span id='v-bl'>") + bl_s +
+        F("</span></div>"));
   chunk(F("<h3>Helligkeit</h3>"));
   chunk(String(F("<label>Helligkeit (0 = dunkel … 15 = maximum)</label>"
                  "<input name='brightness' type='range' min='0' max='15' value='")) +
         cfg.brightness + F("' oninput='this.nextElementSibling.value=this.value'>"
                            "<output>") + cfg.brightness + F("</output>"));
   chunk(F("<p class='hint'>Wird sofort nach dem Speichern übernommen.</p>"));
+  chunk(F("<h3>Lichtsensor</h3>"));
+  chunk(String(F("<div class='chk'><input type='checkbox' name='auto_brightness' value='1'")) +
+        checked(cfg.auto_brightness) +
+        F("><label>Helligkeit automatisch mit VEML7700 regeln</label></div>"));
+  chunk(F("<p class='hint'>Wenn aktiv, folgt die Display-Helligkeit dem Umgebungslicht. Der manuelle Wert bleibt als Fallback erhalten.</p>"));
   chunk(F("<h3>Software-Dimmen (PWM)</h3>"));
   chunk(String(F("<label>Abdunklungsst&auml;rke (1=10% … 5=50% Abdunklung)</label>"
                  "<input name='pwm_duty' type='range' min='1' max='5' value='")) +
@@ -579,8 +602,8 @@ static void handleSave() {
   if (server.hasArg(F("brightness"))) {
     int b = constrain(server.arg(F("brightness")).toInt(), 0, 15);
     cfg.brightness = (uint8_t)b;
-    applyBrightness();
   }
+  cfg.auto_brightness = server.hasArg(F("auto_brightness"));
   if (!server.hasArg(F("pwm_enabled"))) {
     cfg.pwm_duty = 10;
     pwmStop();
@@ -598,6 +621,8 @@ static void handleSave() {
   scrollInitDone = false;
   lastDispTime[0] = 0;
   lastDispDate[0] = 0;
+
+  updateBrightnessFromLux(true);
   cfg.ota_enabled  = server.hasArg(F("ota_enabled"));
   if (server.hasArg(F("ota_password"))) cfg.ota_password = arg("ota_password");
 
@@ -808,6 +833,10 @@ static void handleApiStatus() {
   json += String(F("\"localsec\":")) +
           (timeValid ? (uint32_t)(tm_l.tm_hour * 3600 + tm_l.tm_min * 60 + tm_l.tm_sec) : 0UL)
           + F(",");
+  json += String(F("\"lux\":")) + (isfinite(luxHold) ? String(luxHold, 1) : String(-1.0f)) + F(",");
+  json += String(F("\"brightness\":")) + displayIntensityApplied + F(",");
+  json += String(F("\"auto_brightness\":")) + (cfg.auto_brightness ? F("true") : F("false")) + F(",");
+  json += String(F("\"sensor_ok\":")) + (vemlOk ? F("true") : F("false")) + F(",");
   json += String(F("\"nextsync\":")) + nextSyncInSec() + F(",");
   json += String(F("\"heap\":")) + ESP.getFreeHeap() + F(",");
   json += String(F("\"rssi\":")) + (WiFi.status()==WL_CONNECTED ? WiFi.RSSI() : 0);
