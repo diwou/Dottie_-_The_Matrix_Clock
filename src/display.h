@@ -6,7 +6,7 @@
 extern MD_MAX72XX mx;
 
 // Physikalisches Display-Mapping (obere / untere Zeile)
-static const uint8_t MAP_TOP[8]    = {7,6,5,4,3,2,1,0};
+static const uint8_t MAP_TOP[8]    = {0,1,2,3,4,5,6,7};
 static const uint8_t MAP_BOTTOM[8] = {8,9,10,11,12,13,14,15};
 
 // Obere 8 Module sind um 180° gedreht eingebaut.
