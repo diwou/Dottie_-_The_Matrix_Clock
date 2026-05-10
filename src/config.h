@@ -125,8 +125,16 @@ extern WiFiManager wifiMgr;
 static String trimStr(const String& s) { String r = s; r.trim(); return r; }
 static bool   parseIP(const String& s, IPAddress& out) { return out.fromString(s); }
 
+static bool mountLittleFS() {
+#if defined(ARDUINO_ARCH_ESP32)
+  return LittleFS.begin(true);
+#else
+  return LittleFS.begin();
+#endif
+}
+
 static bool loadConfig() {
-  if (!LittleFS.begin()) return false;
+  if (!mountLittleFS()) return false;
   if (!LittleFS.exists(CFG_FILE)) return true;
 
   File f = LittleFS.open(CFG_FILE, "r");
@@ -185,7 +193,7 @@ static bool loadConfig() {
 }
 
 static bool saveConfig() {
-  if (!LittleFS.begin()) return false;
+  if (!mountLittleFS()) return false;
   File f = LittleFS.open(CFG_FILE, "w");
   if (!f) return false;
 
@@ -224,7 +232,7 @@ static bool saveConfig() {
 }
 
 static void factoryReset() {
-  if (LittleFS.begin() && LittleFS.exists(CFG_FILE))
+  if (mountLittleFS() && LittleFS.exists(CFG_FILE))
     LittleFS.remove(CFG_FILE);
   delay(150);
   ESP.restart();

@@ -25,6 +25,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - `NtpLogEntry` von `String` auf `char[]`-Buffer umgestellt – reduziert Heap-Fragmentierung im NTP-Log-Ringpuffer. (Ref: ea26b7a)
 
 ### Behoben
+- LittleFS auf dem ESP32-S3 wird jetzt beim ersten Mount automatisch formatiert, damit neue Boards die WLAN-Konfiguration speichern können. (Ref: board-2026-05-10-littlefs)
 - Web-UI zeigt den letzten NTP-Sync nicht mehr als laufend aktualisierte aktuelle Uhrzeit an. (Ref: review-2026-04-28-ntp-sync)
 - Fehler beim Laden oder Speichern der LittleFS-Konfiguration werden nicht mehr stillschweigend als Erfolg behandelt. (Ref: review-2026-04-28-config-io)
 - JSON-Ausgabe des manuellen NTP-Tests escaped Strings jetzt JSON-konform statt per HTML-Escape. (Ref: review-2026-04-28-json)
