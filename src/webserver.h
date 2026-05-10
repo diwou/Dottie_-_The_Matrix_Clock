@@ -1,10 +1,9 @@
 #pragma once
 
-#include <ESP8266WebServer.h>
-#include <ESP8266WiFi.h>
+#include "platform_compat.h"
 #include "config.h"
 
-extern ESP8266WebServer server;
+extern ClockWebServer server;
 extern DNSServer        dnsServer;
 
 // ============================================================
@@ -502,7 +501,8 @@ static void handleRoot() {
 
   chunk(F("<h3>Chip-Info</h3>"));
   chunk(String(F("<div class='stat'>"
-                 "<b>Chip-ID:</b> 0x")) + String(ESP.getChipId(), HEX) +
+                 "<b>Chip:</b> ")) + clockChipLabel() +
+        F(" &nbsp; <b>ID:</b> 0x") + clockChipIdHex() +
         F(" &nbsp; <b>Flash:</b> ") + ESP.getFlashChipSize() / 1024 + F(" KB"
         " &nbsp; <b>Freier Heap:</b> ") + ESP.getFreeHeap() + F(" Byte"
         " &nbsp; <b>Sketch-Größe:</b> ") + ESP.getSketchSize() / 1024 + F(" KB"

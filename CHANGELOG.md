@@ -8,6 +8,9 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 
 ## [Unreleased]
 
+### Neu
+- Firmware und Build-Konfiguration auf die neue ESP32-S3-WROOM-1-N16R8-Platine vorbereitet; Display-, Reset- und I2C-Pins werden zentral per Build-Flags gesetzt. (Ref: board-2026-05-10-esp32s3)
+
 ### Geändert
 - Projektregeln, Release-Dokumentation und `.gitignore` auf dieses Repository abgestimmt; `AGENTS.md` ist nicht mehr ignoriert und kann versioniert werden. (Ref: review-2026-04-28-regeln)
 - Versionsquelle auf `APP_VERSION_BASE` in `src/config.h` umgestellt und Build-Erzeugung von `include/version_generated.h` mit Codeberg-Kurz-Hash ergänzt. (Ref: review-2026-04-28-version)

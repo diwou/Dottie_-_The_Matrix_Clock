@@ -1,8 +1,8 @@
 # Dottie – The Matrix Clock
 
-Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis eines **ESP8266 (NodeMCU v2)** mit 16 MAX7219-LED-Matrix-Modulen. Zeigt Zeit und Datum mit Scroll-Animation, Weboberfläche, OTA-Updates und automatischer Zeitsynchronisation.
+Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MAX7219-LED-Matrix-Modulen. Zeigt Zeit und Datum mit Scroll-Animation, Weboberfläche, OTA-Updates und automatischer Zeitsynchronisation.
 
-- Aktuelle Version: `1.4.8` (Development-Builds zeigen zusätzlich den Codeberg-Kurz-Hash)
+- Aktuelle Version: `1.5.0` (Development-Builds zeigen zusätzlich den Codeberg-Kurz-Hash)
 - Repository: `https://codeberg.org/diwou/Dottie_-_The_Matrix_Clock`
 - Lizenz: `CC BY-NC-SA 4.0`
 
@@ -16,7 +16,7 @@ Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis eines **ESP8266 (NodeMCU v2)**
 - **Web-UI**: Responsive HTML5-Oberfläche mit Live-Display-Vorschau
 - **OTA-Updates**: Kabellose Firmware-Updates über `dottie.local`
 - **WiFi-Resilienz**: State-Machine mit exponentiellem Backoff, AP-Fallback (Captive Portal)
-- **Factory-Reset**: GPIO16 5 Sekunden halten
+- **Factory-Reset**: konfigurierbarer GPIO 5 Sekunden halten
 
 ---
 
@@ -24,20 +24,23 @@ Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis eines **ESP8266 (NodeMCU v2)**
 
 | Komponente | Details |
 |---|---|
-| MCU | ESP8266 NodeMCU v2 |
+| MCU | ESP32-S3-WROOM-1-N16R8 |
 | Display | 16× MAX7219 LED-Matrix-Module (FC16_HW) |
-| SPI | CS = D2 (GPIO4) |
+| Display-Pins | DIN = GPIO11, CLK = GPIO12, CS/LOAD = GPIO10 |
+| I2C | SDA = GPIO8, SCL = GPIO9 für VEML7700 und DS3231S (noch nicht firmwareseitig genutzt) |
 | Anordnung | 2 Reihen: TOP (8 Module, 8×8 px) + BOTTOM (8 Module, 5×7 px) |
-| Reset-Button | GPIO16 (D0) – externer 10 kΩ Pull-Up zu 3,3 V erforderlich! |
+| Reset-Button | GPIO0 gegen GND, 5 Sekunden halten |
 
 ### Verdrahtung
 
 ```
-NodeMCU → MAX7219-Kette
-D7 (MOSI/GPIO13) → DIN
-D5 (CLK/GPIO14)  → CLK
-D2 (CS/GPIO4)    → CS/LOAD
+ESP32-S3 → MAX7219-Kette
+GPIO11 → DIN
+GPIO12 → CLK
+GPIO10 → CS/LOAD
 ```
+
+Die Pinwerte werden in `platformio.ini` über `DISPLAY_DATA_PIN`, `DISPLAY_CLK_PIN`, `DISPLAY_CS_PIN`, `FACTORY_RESET_PIN`, `I2C_SDA_PIN` und `I2C_SCL_PIN` gesetzt.
 
 Die 16 Module bilden eine SPI-Kette: TOP (Module 0–7, rechts nach links) und BOTTOM (Module 8–15, rechts nach links). Das physikalische Mapping wird über `MAP_TOP[]` und `MAP_BOTTOM[]` in `display.h` konfiguriert.
 
@@ -49,10 +52,10 @@ Die 16 Module bilden eine SPI-Kette: TOP (Module 0–7, rechts nach links) und B
 
 ```bash
 # Kompilieren
-pio run -e nodemcuv2
+pio run -e dottie_esp32s3
 
 # OTA-Upload (IP per CLI angeben)
-pio run -t upload -e nodemcuv2_ota --upload-port 10.10.60.125
+pio run -t upload -e dottie_esp32s3_ota --upload-port 10.10.60.125
 
 # Serieller Monitor (USB-Fallback, 115200 Baud)
 pio device monitor
@@ -63,14 +66,14 @@ pio device monitor
 | Bibliothek | Version |
 |---|---|
 | `majicdesigns/MD_MAX72XX` | ^3.5.1 |
-| ESP8266 Arduino Core (Board Package) | – |
+| ESP32 Arduino Core (PlatformIO `espressif32`) | – |
 
 ---
 
 ## Inbetriebnahme
 
 1. Firmware per USB oder OTA flashen; bei OTA die Geräte-IP über `--upload-port` angeben
-2. Firmware flashen: `pio run -t upload -e nodemcuv2`
+2. Firmware flashen: `pio run -t upload -e dottie_esp32s3`
 3. Beim ersten Start ohne gespeicherte WLAN-Konfiguration öffnet Dottie einen **AP** mit SSID `DOTTIE-{ChipID}`
 4. Mit dem AP verbinden (IP: `192.168.4.1`) und WLAN-Zugangsdaten eingeben
 5. Nach dem Verbinden ist die Web-UI unter der zugewiesenen IP oder `http://dottie.local` erreichbar
@@ -181,7 +184,7 @@ Physikalische Modul-IDs werden über `MAP_TOP[8]` und `MAP_BOTTOM[8]` von logisc
 
 ## Factory-Reset
 
-GPIO16 (D0) für **5 Sekunden** gedrückt halten:
+Den in `FACTORY_RESET_PIN` konfigurierten GPIO für **5 Sekunden** gegen GND halten:
 - Countdown wird auf dem Display angezeigt
 - `/cfg.txt` wird gelöscht
 - Gerät startet neu und öffnet AP

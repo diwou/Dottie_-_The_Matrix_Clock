@@ -2,13 +2,13 @@
 
 #include <Arduino.h>
 #include <LittleFS.h>
+#include "pins.h"
 
 // ============================================================
 // Konstanten
 // ============================================================
-#define APP_VERSION_BASE      "1.4.8"
+#define APP_VERSION_BASE      "1.5.0"
 
-#define FACTORY_RESET_PIN     D0      // GPIO16 – braucht externen Pull-Up!
 #define FACTORY_RESET_HOLD_MS 5000UL  // ms gehalten → Factory Reset
 #define RESET_DEBOUNCE_MS     80UL
 
@@ -127,9 +127,9 @@ static bool   parseIP(const String& s, IPAddress& out) { return out.fromString(s
 
 static bool loadConfig() {
   if (!LittleFS.begin()) return false;
-  if (!LittleFS.exists(FPSTR(CFG_FILE))) return true;
+  if (!LittleFS.exists(CFG_FILE)) return true;
 
-  File f = LittleFS.open(FPSTR(CFG_FILE), "r");
+  File f = LittleFS.open(CFG_FILE, "r");
   if (!f) return false;
 
   while (f.available()) {
@@ -186,7 +186,7 @@ static bool loadConfig() {
 
 static bool saveConfig() {
   if (!LittleFS.begin()) return false;
-  File f = LittleFS.open(FPSTR(CFG_FILE), "w");
+  File f = LittleFS.open(CFG_FILE, "w");
   if (!f) return false;
 
   f.println(F("# Dottie Konfiguration"));
@@ -224,8 +224,8 @@ static bool saveConfig() {
 }
 
 static void factoryReset() {
-  if (LittleFS.begin() && LittleFS.exists(FPSTR(CFG_FILE)))
-    LittleFS.remove(FPSTR(CFG_FILE));
+  if (LittleFS.begin() && LittleFS.exists(CFG_FILE))
+    LittleFS.remove(CFG_FILE);
   delay(150);
   ESP.restart();
 }

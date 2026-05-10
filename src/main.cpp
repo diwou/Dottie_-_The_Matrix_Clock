@@ -1,17 +1,15 @@
 /*
   Dottie – The Matrix Clock
-  ESP8266 NTP Dot-Matrix Clock (MAX7219 / MD_MAX72xx)
+  ESP32-S3/ESP8266 NTP Dot-Matrix Clock (MAX7219 / MD_MAX72xx)
 
   Versionshistorie: siehe CHANGELOG.md
 
-  NOTE: GPIO16 (D0) needs external pull-up (10k to 3V3) for reliable reset detection.
-  NOTE: Für OTA wird die ArduinoOTA-Library benötigt (im ESP8266 Board Package enthalten).
+  NOTE: Die Hardware-Pins werden zentral in pins.h bzw. per platformio.ini gesetzt.
 */
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
+#include "platform_compat.h"
+#include "pins.h"
 #include <ArduinoOTA.h>
 #include <DNSServer.h>
 #include <WiFiUdp.h>
@@ -34,8 +32,7 @@ extern "C" {
 // ============================================================
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
 #define MAX_DEVICES   16
-#define CS_PIN        D2
-MD_MAX72XX mx(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
+MD_MAX72XX mx(HARDWARE_TYPE, DISPLAY_DATA_PIN, DISPLAY_CLK_PIN, DISPLAY_CS_PIN, MAX_DEVICES);
 
 #include "config.h"
 #include "version_generated.h"
@@ -282,7 +279,7 @@ static bool ntpProbeOnce(const String& host, uint16_t timeoutMs, String* detail 
 
   // UDP-Probe -----------------------------------------------
   static uint16_t localPort = 0;
-  if (!localPort) localPort = NTP_UDP_PORT_BASE + (ESP.getChipId() & 0x0FFF);
+  if (!localPort) localPort = NTP_UDP_PORT_BASE + (clockChipId() & 0x0FFF);
 
   static WiFiUDP udp;
   udp.stop();
@@ -432,9 +429,15 @@ static void applyTimeConfig(bool force) {
   String s2 = (s1 != cfg.ntp2) ? cfg.ntp2 : cfg.ntp3;
   String s3 = (s1 != cfg.ntp3 && s2 != cfg.ntp3) ? cfg.ntp3 : "";
 
-  configTime(tz.c_str(), s1.c_str(),
-             s2.length() ? s2.c_str() : nullptr,
-             s3.length() ? s3.c_str() : nullptr);
+  #if defined(ARDUINO_ARCH_ESP32)
+    configTzTime(tz.c_str(), s1.c_str(),
+                 s2.length() ? s2.c_str() : nullptr,
+                 s3.length() ? s3.c_str() : nullptr);
+  #else
+    configTime(tz.c_str(), s1.c_str(),
+               s2.length() ? s2.c_str() : nullptr,
+               s3.length() ? s3.c_str() : nullptr);
+  #endif
   activeNtp = best;
 }
 
@@ -467,7 +470,7 @@ static bool connectWiFiSTA(bool showUi = true) {
   WiFi.persistent(false);
   WiFi.disconnect(true);
   delay(100);
-  WiFi.setSleepMode(WIFI_NONE_SLEEP);
+  clockDisableWiFiSleep();
   applyIpAndDnsBeforeConnect();
   WiFi.begin(cfg.sta_ssid.c_str(), cfg.sta_pass.c_str());
 
@@ -506,7 +509,7 @@ static bool connectWiFiSTA(bool showUi = true) {
 // ============================================================
 // Captive Portal (AP-Modus)
 // ============================================================
-ESP8266WebServer server(WEB_PORT);
+ClockWebServer server(WEB_PORT);
 DNSServer        dnsServer;
 
 static void startCaptivePortal() {
@@ -514,10 +517,10 @@ static void startCaptivePortal() {
   WiFi.persistent(false);
   WiFi.disconnect(true);
   delay(50);
-  WiFi.setSleepMode(WIFI_NONE_SLEEP);
+  clockDisableWiFiSleep();
   WiFi.softAPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
 
-  String apName = String(FPSTR(AP_PREFIX)) + String(ESP.getChipId(), HEX);
+  String apName = String(FPSTR(AP_PREFIX)) + clockChipIdHex();
   apName.toUpperCase();
   WiFi.softAP(apName.c_str());
 
@@ -788,7 +791,7 @@ void loop() {
   if (cfg.ota_enabled) ArduinoOTA.handle();
 
   // ③ mDNS verarbeiten
-  MDNS.update();
+  clockMdnsUpdate();
 
   // ④ DNS (Captive Portal) / Web
   if (WiFi.getMode() & WIFI_AP) dnsServer.processNextRequest();
