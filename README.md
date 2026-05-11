@@ -1,6 +1,6 @@
 # Dottie – The Matrix Clock
 
-Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MAX7219-LED-Matrix-Modulen. Zeigt Zeit und Datum mit Scroll-Animation, Weboberfläche, OTA-Updates, automatischer Zeitsynchronisation und optionaler Helligkeitsregelung per VEML7700.
+Eine Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MAX7219-LED-Matrix-Modulen, DS3231-RTC und VEML7700-Lichtsensor. Die Uhr zeigt Zeit und Datum mit Scroll-Animation, regelt die Helligkeit automatisch nach Umgebungslicht, synchronisiert die hochgenaue RTC per NTP und bietet eine Weboberfläche für Konfiguration, Diagnose und manuelle RTC-Einstellung.
 
 - Aktuelle Version: `1.5.0` (Development-Builds zeigen zusätzlich den Codeberg-Kurz-Hash)
 - Repository: `https://codeberg.org/diwou/Dottie_-_The_Matrix_Clock`
@@ -10,10 +10,11 @@ Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8
 
 ## Features
 
+- **Zeitbasis**: DS3231-RTC als Laufzeit-Uhr, NTP zur regelmäßigen Korrektur und manuelle RTC-Einstellung im Webinterface
 - **NTP-Synchronisation** mit 3 konfigurierbaren Fallback-Servern
 - **Zeitzone & DST**: UTC-Offset, EU/US/Custom-Sommerzeit
-- **Display**: 24h/12h-Modus, 5 Datumsformate, einstellbare Helligkeit, Scroll-Animation, VEML7700-Autohelligkeit
-- **Web-UI**: Responsive HTML5-Oberfläche mit Live-Display-Vorschau
+- **Display**: 24h/12h-Modus, 5 Datumsformate, einstellbare Helligkeit, Scroll-Animation, Software-Dimmen und VEML7700-Autohelligkeit
+- **Web-UI**: Responsive HTML5-Oberfläche mit Live-Display-Vorschau, RTC-Tab, NTP-Status und Diagnose
 - **OTA-Updates**: Kabellose Firmware-Updates über `dottie.local`
 - **WiFi-Resilienz**: State-Machine mit exponentiellem Backoff, AP-Fallback (Captive Portal)
 - **Factory-Reset**: konfigurierbarer GPIO 5 Sekunden halten
@@ -28,6 +29,7 @@ Eine NTP-synchronisierte Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8
 | Display | 16× MAX7219 LED-Matrix-Module (FC16_HW) |
 | Display-Pins | DIN = GPIO11, CLK = GPIO12, CS/LOAD = GPIO10 |
 | I2C | SDA = GPIO38, SCL = GPIO39 für VEML7700 und DS3231S |
+| RTC | DS3231S als Laufzeit-Uhr, NTP schreibt Korrekturen zurück in die RTC |
 | Anordnung | 2 Reihen: TOP (8 Module, 8×8 px) + BOTTOM (8 Module, 5×7 px) |
 | Reset-Button | GPIO9 gegen GND, 5 Sekunden halten |
 
@@ -99,8 +101,9 @@ pio device monitor
 | **Status** | WiFi-Status, IP, NTP-Log (letzte 5 Syncs), manueller NTP-Test |
 | **WiFi** | SSID, Passwort, Timeout, DHCP/Static-IP, DNS |
 | **NTP** | 3 Server-URLs, Sync-Intervall, Test-Buttons |
+| **RTC** | DS3231-Status, I2C-Diagnose, letzter NTP-Sync, manuelle Uhrzeit/Datum-Eingabe |
 | **Zeitzone** | UTC-Offset, DST-Modus (Aus/EU/US/Custom) |
-| **Display** | 24h/12h, Sekunden, Datumsformat, Helligkeit, Scroll-Effekt |
+| **Display** | 24h/12h, Sekunden, Datumsformat, Helligkeit, Scroll-Effekt, VEML7700-Autohelligkeit |
 | **System** | OTA, Chip-Info, Neustart, Factory-Reset, Diagnose |
 
 ### REST-API
@@ -109,6 +112,7 @@ pio device monitor
 |---|---|---|
 | `/api/status` | GET | JSON: Zeit, Datum, Uptime, next_sync, Heap, RSSI |
 | `/api/ntptest` | GET | JSON: running, host, result, detail |
+| `/rtcset` | POST | RTC manuell auf Datum und Uhrzeit setzen |
 | `/save` | POST | Konfiguration speichern |
 | `/test?i=1..3` | POST | NTP-Server testen (asynchron) |
 | `/reboot` | POST | Neustart |
