@@ -1,6 +1,6 @@
 # Dottie – The Matrix Clock
 
-Eine Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MAX7219-LED-Matrix-Modulen, DS3231-RTC mit CR2032-Pufferung und VEML7700-Lichtsensor. Die Uhr zeigt Zeit und Datum mit Scroll-Animation, regelt die Helligkeit automatisch nach Umgebungslicht, synchronisiert die hochgenaue RTC per NTP und bietet eine Weboberfläche für Konfiguration, Diagnose und manuelle RTC-Einstellung.
+Eine Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MAX7219-LED-Matrix-Modulen, DS3231-RTC mit CR2032-Pufferung und VEML7700-Lichtsensor. Die Uhr zeigt Zeit und Datum mit Scroll-Animation, regelt die Helligkeit automatisch nach Umgebungslicht, synchronisiert die hochgenaue RTC per NTP und bietet eine Weboberfläche für Konfiguration, Diagnose, manuelle RTC-Einstellung und Firmware-Upload.
 
 - Aktuelle Version: `1.5.0` (Development-Builds zeigen zusätzlich den Codeberg-Kurz-Hash)
 - Repository: `https://codeberg.org/diwou/Dottie_-_The_Matrix_Clock`
@@ -14,8 +14,8 @@ Eine Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MA
 - **NTP-Synchronisation** mit 3 konfigurierbaren Fallback-Servern
 - **Zeitzone & DST**: UTC-Offset, EU/US/Custom-Sommerzeit
 - **Display**: 24h/12h-Modus, 5 Datumsformate, einstellbare Helligkeit, Scroll-Animation, Software-Dimmen und VEML7700-Autohelligkeit
-- **Web-UI**: Responsive HTML5-Oberfläche mit Live-Display-Vorschau, RTC-Tab, NTP-Status und Diagnose
-- **OTA-Updates**: Kabellose Firmware-Updates über `dottie.local`
+- **Web-UI**: Responsive HTML5-Oberfläche mit Live-Display-Vorschau, RTC-Tab, NTP-Status, Diagnose und Firmware-Installer
+- **OTA-/Firmware-Updates**: Kabellose Updates über `dottie.local` und Web-Upload von `.bin`-Firmwaredateien
 - **WiFi-Resilienz**: State-Machine mit exponentiellem Backoff, AP-Fallback (Captive Portal)
 - **Factory-Reset**: konfigurierbarer GPIO 5 Sekunden halten
 
@@ -79,6 +79,9 @@ pio run -t upload -e dottie_esp32s3_ota --upload-port dottie.local
 # Native USB am ESP32-S3
 pio run -t upload -e dottie_esp32s3 --upload-port /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_94-A9-90-2F-91-A0-if00
 
+# Firmware-Build-Artefakte
+# `Firmware/<version>/` und `Firmware/latest/` werden beim Build automatisch erzeugt
+
 # Serieller Monitor (USB-Fallback, 115200 Baud)
 pio device monitor
 ```
@@ -115,7 +118,7 @@ pio device monitor
 | **RTC** | DS3231-Status, I2C-Diagnose, letzter NTP-Sync, manuelle Uhrzeit/Datum-Eingabe |
 | **Zeitzone** | UTC-Offset, DST-Modus (Aus/EU/US/Custom) |
 | **Display** | 24h/12h, Sekunden, Datumsformat, Helligkeit, Scroll-Effekt, VEML7700-Autohelligkeit |
-| **System** | OTA, Chip-Info, Neustart, Factory-Reset, Diagnose |
+| **System** | OTA, Firmware-Installer, Chip-Info, Neustart, Factory-Reset, Diagnose |
 
 ### REST-API
 
@@ -123,6 +126,7 @@ pio device monitor
 |---|---|---|
 | `/api/status` | GET | JSON: Zeit, Datum, Uptime, next_sync, Heap, RSSI |
 | `/api/ntptest` | GET | JSON: running, host, result, detail |
+| `/api/update` | POST | Firmware per Web-Upload einspielen |
 | `/rtcset` | POST | RTC manuell auf Datum und Uhrzeit setzen |
 | `/save` | POST | Konfiguration speichern |
 | `/test?i=1..3` | POST | NTP-Server testen (asynchron) |

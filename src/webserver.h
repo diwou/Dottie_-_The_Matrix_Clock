@@ -2,9 +2,13 @@
 
 #include "platform_compat.h"
 #include "config.h"
+#include <Update.h>
 
 extern ClockWebServer server;
 extern DNSServer        dnsServer;
+
+static bool firmwareUpdateOk = false;
+static String firmwareUpdateError;
 
 // ============================================================
 // Web-UI: HTML-Hilfsfunktionen (Streaming)
@@ -144,6 +148,22 @@ static void handleRoot() {
           ".then(function(r){return r.text().then(function(x){return {ok:r.ok,text:x};});})"
           ".then(function(r){if(!r.ok)throw new Error(r.text); if(msg)msg.textContent='RTC gesetzt'; pollStatus();})"
           ".catch(function(e){if(msg)msg.textContent='RTC-Fehler: '+e;});}"
+          "function uploadFirmware(){"
+          "var file=document.getElementById('fw_file');"
+          "var msg=document.getElementById('fw_msg');"
+          "if(!file||!file.files||!file.files.length){if(msg)msg.textContent='Bitte eine .bin-Datei auswaehlen.';return;}"
+          "if(!confirm('Firmware wirklich hochladen und danach neu starten?'))return;"
+          "var form=new FormData();"
+          "form.append('firmware',file.files[0],file.files[0].name);"
+          "if(msg)msg.textContent='Upload laeuft ...';"
+          "fetch('/api/update',{method:'POST',body:form})"
+          ".then(function(r){return r.json().then(function(j){return {ok:r.ok,json:j};});})"
+          ".then(function(r){"
+          "if(r.ok&&r.json&&r.json.ok){if(msg)msg.textContent='Firmware eingespielt. Neustart ...';setTimeout(function(){location.reload();},18000);return;}"
+          "var err=(r.json&&r.json.error)?r.json.error:'unbekannter Fehler';"
+          "if(msg)msg.textContent='Firmware-Update fehlgeschlagen: '+err;"
+          "})"
+          ".catch(function(e){if(msg)msg.textContent='Firmware-Upload fehlgeschlagen: '+e;});}"
           "var F8={"
           "'0':[0x3C,0x66,0x66,0x66,0x66,0x66,0x66,0x3C],"
           "'1':[0x18,0x38,0x18,0x18,0x18,0x18,0x18,0x7E],"
@@ -230,6 +250,8 @@ static void handleRoot() {
           "if(lux)lux.textContent=d.lux>=0?d.lux.toFixed(1)+' lx':'-';"
           "var bl=document.getElementById('v-bl');"
           "if(bl)bl.textContent=d.brightness+' / 15';"
+          "var fw=document.getElementById('v-fw');"
+          "if(fw&&d.fw_version)fw.textContent=d.fw_version;"
           "var sa=document.getElementById('v-auto');"
           "if(sa)sa.textContent=d.auto_brightness?'aktiv':'aus';"
           "var ss=document.getElementById('v-sensor');"
@@ -595,6 +617,17 @@ static void handleRoot() {
                  "<input name='ota_password' type='password' value='")) + htmlEscape(cfg.ota_password) + F("'>"));
   chunk(F("<p class='hint'>OTA-Hostname: <b>dottie.local</b> — Änderungen gelten nach Neustart.</p>"));
 
+  chunk(F("<h3>Firmware-Installer</h3>"));
+  chunk(String(F("<div class='stat'>"
+                 "<b>Aktuelle Firmware:</b> <span id='v-fw'>")) + htmlEscape(FPSTR(FW_VERSION)) + F("</span><br>"
+                 "<b>Firmware-Datei:</b> <input id='fw_file' type='file' accept='.bin' style='margin-top:8px'>"
+                 "</div>"));
+  chunk(F("<div class='row3'>"));
+  chunk(F("<div><button type='button' onclick='uploadFirmware()'>⬆ Firmware einspielen</button></div>"));
+  chunk(F("<div></div><div></div>"));
+  chunk(F("</div>"));
+  chunk(F("<div id='fw_msg' class='hint' style='margin-top:8px'></div>"));
+
   chunk(F("<h3>Chip-Info</h3>"));
   chunk(String(F("<div class='stat'>"
                  "<b>Chip:</b> ")) + clockChipLabel() +
@@ -766,6 +799,56 @@ static void handleRtcSet() {
   lastRtcSyncMs = millis();
   applySystemTimeEpoch(epoch, false, F("DS3231 aktiv"), F("RTC manuell gesetzt"));
   server.send(200, F("text/plain"), F("OK"));
+}
+
+static void handleFirmwareUpdateDone() {
+  if (firmwareUpdateOk) {
+    server.send(200, F("application/json"), F("{\"ok\":true}"));
+    delay(750);
+    ESP.restart();
+    return;
+  }
+
+  String err = firmwareUpdateError.length() ? firmwareUpdateError : F("Firmware-Update fehlgeschlagen");
+  String json = String(F("{\"ok\":false,\"error\":\"")) + jsonEscape(err) + F("\"}");
+  server.send(500, F("application/json"), json);
+}
+
+static void handleFirmwareUpdateUpload() {
+  HTTPUpload& upload = server.upload();
+
+  if (upload.status == UPLOAD_FILE_START) {
+    firmwareUpdateOk = false;
+    firmwareUpdateError = "";
+    String name = upload.filename;
+    if (!name.endsWith(F(".bin"))) {
+      firmwareUpdateError = F("Nur .bin-Dateien sind erlaubt");
+      return;
+    }
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+      firmwareUpdateError = Update.errorString();
+      return;
+    }
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (firmwareUpdateError.length()) return;
+    size_t written = Update.write(upload.buf, upload.currentSize);
+    if (written != upload.currentSize) {
+      firmwareUpdateError = Update.errorString();
+    }
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (firmwareUpdateError.length()) {
+      Update.abort();
+      return;
+    }
+    if (!Update.end(true)) {
+      firmwareUpdateError = Update.errorString();
+      return;
+    }
+    firmwareUpdateOk = true;
+  } else if (upload.status == UPLOAD_FILE_ABORTED) {
+    Update.abort();
+    firmwareUpdateError = F("Upload abgebrochen");
+  }
 }
 
 // ============================================================
@@ -988,6 +1071,7 @@ static void handleApiStatus() {
           + F(",");
   json += String(F("\"lux\":")) + (isfinite(luxHold) ? String(luxHold, 1) : String(-1.0f)) + F(",");
   json += String(F("\"brightness\":")) + displayIntensityApplied + F(",");
+  json += String(F("\"fw_version\":\"")) + jsonEscape(FPSTR(FW_VERSION)) + F("\",");
   json += String(F("\"auto_brightness\":")) + (cfg.auto_brightness ? F("true") : F("false")) + F(",");
   json += String(F("\"sensor_ok\":")) + (vemlOk ? F("true") : F("false")) + F(",");
   json += String(F("\"sensor_msg\":\"")) + jsonEscape(vemlOk ? F("OK") : F("nicht gefunden")) + F("\",");
@@ -1043,6 +1127,7 @@ static void setupWeb() {
   server.on(F("/reboot"),      HTTP_POST, handleReboot);
   server.on(F("/factory"),     HTTP_POST, handleFactory);
   server.on(F("/rtcset"),      HTTP_POST, handleRtcSet);
+  server.on(F("/api/update"),  HTTP_POST, handleFirmwareUpdateDone, handleFirmwareUpdateUpload);
   server.on(F("/test"),        HTTP_POST, handleTest);
   server.on(F("/test"),        HTTP_GET,  handleTest);
   server.on(F("/api/status"),  HTTP_GET,  handleApiStatus);

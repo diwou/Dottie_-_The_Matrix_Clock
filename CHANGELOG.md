@@ -10,6 +10,8 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-05-11
+
 ### Neu
 - Firmware und Build-Konfiguration auf die neue ESP32-S3-WROOM-1-N16R8-Platine vorbereitet; Display-, Reset- und I2C-Pins werden zentral per Build-Flags gesetzt. (Ref: board-2026-05-10-esp32s3)
 - Factory-Reset und I2C auf die gemeldete Verdrahtung angepasst: Reset auf `IO9`, SDA auf `IO38`, SCL auf `IO39`. (Ref: board-2026-05-10-pinfix)
@@ -18,10 +20,12 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - VEML7700-Lichtsensor angebunden und als optionale automatische Helligkeitsregelung im Webinterface eingebaut. (Ref: board-2026-05-10-veml7700)
 - I2C-Initialisierung des VEML7700 meldet jetzt eine konkrete Diagnose, wenn der Sensor nicht antwortet. (Ref: board-2026-05-10-veml7700-diag)
 - Eigener `RTC`-Reiter im Webinterface ergänzt, mit Status, manueller Datum-/Zeiteingabe und I2C-Diagnose für den DS3231-Pfad. (Ref: board-2026-05-11-rtc-tab)
+- Firmware-Installer im `System`-Tab ergänzt; `.bin`-Dateien können direkt per Webinterface eingespielt und danach neu gestartet werden. (Ref: board-2026-05-11-firmware-installer)
 
 ### Geändert
 - KiCad-Projektspiegel mit `source/`, `fab/rev0.4/` und Stücklisten-/Fertigungsdaten in die Repository-Doku aufgenommen. (Ref: board-2026-05-11-kicad-mirror)
 - README um die aktuelle Funktionsbeschreibung mit DS3231-RTC, CR2032-Pufferung, VEML7700-Lichtsensor, RTC-Tab und NTP-Korrektur erweitert. (Ref: board-2026-05-11-readme)
+- Build exportiert jetzt automatisch `Firmware/<version>/` und `Firmware/latest/` mit Manifest und Flash-Binaries für den Firmware-Installer. (Ref: board-2026-05-11-firmware-export)
 - Projektregeln, Release-Dokumentation und `.gitignore` auf dieses Repository abgestimmt; `AGENTS.md` ist nicht mehr ignoriert und kann versioniert werden. (Ref: review-2026-04-28-regeln)
 - Versionsquelle auf `APP_VERSION_BASE` in `src/config.h` umgestellt und Build-Erzeugung von `include/version_generated.h` mit Codeberg-Kurz-Hash ergänzt. (Ref: review-2026-04-28-version)
 - Reproduzierbarkeit des Builds verbessert: PlatformIO-Plattform und `MD_MAX72XX` sind fest gepinnt, lokale OTA-IP aus der Projektkonfiguration entfernt. (Ref: review-2026-04-28-build)
@@ -50,6 +54,9 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - Web-UI zeigt den letzten NTP-Sync nicht mehr als laufend aktualisierte aktuelle Uhrzeit an. (Ref: review-2026-04-28-ntp-sync)
 - Fehler beim Laden oder Speichern der LittleFS-Konfiguration werden nicht mehr stillschweigend als Erfolg behandelt. (Ref: review-2026-04-28-config-io)
 - JSON-Ausgabe des manuellen NTP-Tests escaped Strings jetzt JSON-konform statt per HTML-Escape. (Ref: review-2026-04-28-json)
+
+[Unreleased]: https://codeberg.org/diwou/Dottie_-_The_Matrix_Clock/compare/v1.5.0...HEAD
+[1.5.0]: https://codeberg.org/diwou/Dottie_-_The_Matrix_Clock/compare/v1.4.7...v1.5.0
 
 ---
 
