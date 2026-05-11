@@ -73,6 +73,7 @@ static String   timeSource      = F("keine");
 static String   timeSourceDetail = F("");
 static unsigned long lastLuxMs  = 0;
 static unsigned long luxWarmupUntilMs = 0;
+static unsigned long lastRtcSyncMs = 0;
 static unsigned long vemlRetryAtMs = 0;
 static uint8_t      vemlRetryCount = 0;
 static float    luxFilt         = NAN;
@@ -253,7 +254,23 @@ static bool rtcSetTimeFromEpoch(time_t epoch) {
   return Wire.endTransmission(true) == 0;
 }
 
-static void setTimeSource(const String& label, const String& detail = "") {
+static void setTimeSource(const String& label, const String& detail = "");
+static bool applySystemTimeEpoch(time_t epoch, bool writeRtc, const String& label, const String& detail) {
+  timeval tv {};
+  tv.tv_sec = epoch;
+  tv.tv_usec = 0;
+  if (settimeofday(&tv, nullptr) != 0) return false;
+
+  if (writeRtc && ds3231Present && rtcSetTimeFromEpoch(epoch)) {
+    ds3231TimeValid = true;
+    lastRtcSyncMs = millis();
+  }
+
+  setTimeSource(label, detail);
+  return true;
+}
+
+static void setTimeSource(const String& label, const String& detail) {
   timeSource = label;
   timeSourceDetail = detail;
 }
@@ -305,18 +322,39 @@ static bool setupRtcTime() {
     return false;
   }
 
-  timeval tv {};
-  tv.tv_sec = rtcEpoch;
-  tv.tv_usec = 0;
-  if (settimeofday(&tv, nullptr) != 0) {
+  if (!applySystemTimeEpoch(rtcEpoch, false, F("DS3231 aktiv"), F("RTC hat Zeit geliefert"))) {
     ds3231TimeValid = false;
     setTimeSource(F("keine"), F("DS3231 settimeofday fehlgeschlagen"));
     return false;
   }
 
   ds3231TimeValid = true;
-  setTimeSource(F("DS3231 aktiv"), F("RTC hat Zeit geliefert"));
+  lastRtcSyncMs = millis();
   return true;
+}
+
+static void refreshSystemTimeFromRtc(bool force = false) {
+  if (!ds3231Present || !ds3231TimeValid) return;
+
+  unsigned long nowMs = millis();
+  if (!force && nowMs - lastRtcSyncMs < 300000UL) return;
+
+  time_t rtcEpoch = 0;
+  if (!rtcEpochToTime(rtcEpoch)) {
+    ds3231TimeValid = false;
+    setTimeSource(F("keine"), F("DS3231 Zeit nicht lesbar"));
+    return;
+  }
+
+  time_t sysEpoch = time(nullptr);
+  time_t delta = rtcEpoch - sysEpoch;
+  if (delta < 0) delta = -delta;
+
+  if (force || sysEpoch < 1700000000UL || delta >= 2) {
+    applySystemTimeEpoch(rtcEpoch, false, F("DS3231 aktiv"), F("RTC ist Zeitquelle"));
+  }
+
+  lastRtcSyncMs = nowMs;
 }
 
 static void retryLightSensorIfNeeded() {
@@ -681,8 +719,11 @@ static void applyTimeConfig(bool force) {
   ntpProbeOnce(best.length() ? best : cfg.ntp1, NTP_PROBE_TIMEOUT_MS, &detail, &txSec);
   if (txSec && syncSystemTimeFromNtp(txSec)) {
     lastSyncEpoch = time(nullptr);
-    rtcSetTimeFromEpoch(lastSyncEpoch);
-    setTimeSource(F("NTP aktiv"), best.length() ? best : cfg.ntp1);
+    if (ds3231Present) {
+      applySystemTimeEpoch(lastSyncEpoch, true, F("DS3231 aktiv"), F("RTC von NTP korrigiert"));
+    } else {
+      setTimeSource(F("NTP aktiv"), best.length() ? best : cfg.ntp1);
+    }
   }
   ntpLogAdd(time(nullptr), best.length() ? best : cfg.ntp1, best.length() > 0, detail);
 
@@ -1120,6 +1161,9 @@ void loop() {
       applyTimeConfig(true);
     }
   }
+
+  // RTC als laufende Zeitbasis nachführen
+  refreshSystemTimeFromRtc();
 
   // ⑥b Umgebungslicht -> Displayhelligkeit
   retryLightSensorIfNeeded();

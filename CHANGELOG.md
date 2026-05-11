@@ -15,6 +15,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - Upload-Port auf den stabilen Espressif-by-id-Pfad umgestellt, damit die USB-Enumeration nicht mehr an wechselnden `ttyACM`-Namen hängt. (Ref: board-2026-05-10-usb-byid)
 - VEML7700-Lichtsensor angebunden und als optionale automatische Helligkeitsregelung im Webinterface eingebaut. (Ref: board-2026-05-10-veml7700)
 - I2C-Initialisierung des VEML7700 meldet jetzt eine konkrete Diagnose, wenn der Sensor nicht antwortet. (Ref: board-2026-05-10-veml7700-diag)
+- Eigener `RTC`-Reiter im Webinterface ergänzt, mit Status, manueller Datum-/Zeiteingabe und Übernahme der aktuellen Systemzeit in die DS3231. (Ref: board-2026-05-11-rtc-tab)
 
 ### Geändert
 - Projektregeln, Release-Dokumentation und `.gitignore` auf dieses Repository abgestimmt; `AGENTS.md` ist nicht mehr ignoriert und kann versioniert werden. (Ref: review-2026-04-28-regeln)
@@ -27,7 +28,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - `NtpLogEntry` von `String` auf `char[]`-Buffer umgestellt – reduziert Heap-Fragmentierung im NTP-Log-Ringpuffer. (Ref: ea26b7a)
 
 ### Behoben
-- DS3231 wird beim Start als Zeitquelle genutzt, wenn er eine gueltige Uhrzeit liefert, und erfolgreiche NTP-Syncs schreiben die Zeit jetzt in die RTC zurueck. Der Status zeigt dazu die aktuelle Zeitquelle in der Web-UI und per API an. (Ref: board-2026-05-11-ds3231-time)
+- DS3231 ist jetzt die bevorzugte Laufzeit-Zeitquelle; NTP korrigiert nur noch die RTC und die ESP-Zeit wird regelmaessig aus der DS3231 nachgefuehrt. Der Status zeigt dazu die aktuelle Zeitquelle in der Web-UI und per API an. (Ref: board-2026-05-11-ds3231-time)
 - Wenn beim Start noch keine gueltige Zeit vorliegt, versucht die Firmware NTP erneut, aber erst wenn DNS im WLAN bereit ist, damit kein fruehes "DNS fehlgeschlagen" entsteht. (Ref: board-2026-05-11-ntp-retry)
 - Software-PWM wird jetzt in der Hauptschleife getaktet statt per asynchronem Ticker; das verhindert korrupt gezeichnete Ziffern und reduziert Flackern beim Sekundenwechsel. (Ref: board-2026-05-11-pwm-loop)
 - I2C-Diagnose zeigt jetzt zusätzlich den DS3231-Pfad an, damit ein einzelnes VEML-NACK nicht den Eindruck erweckt, der ganze Bus wäre tot. (Ref: board-2026-05-10-i2c-scan)
