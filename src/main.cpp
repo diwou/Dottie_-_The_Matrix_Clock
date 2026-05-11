@@ -13,7 +13,6 @@
 #include <ArduinoOTA.h>
 #include <DNSServer.h>
 #include <WiFiUdp.h>
-#include <Ticker.h>
 #include <time.h>
 #include <sys/time.h>
 #include <math.h>
@@ -213,40 +212,44 @@ static void retryLightSensorIfNeeded() {
 }
 
 // ============================================================
-// Software-PWM via SHUTDOWN-Register + Ticker
-// Ticker feuert über yield() auch während server.handleClient(),
-// ArduinoOTA.handle() etc. → kein Loop-Jitter auf die PWM-Zeiten.
+// Software-PWM via SHUTDOWN-Register
+// Laufzeitgesteuert im Hauptloop, damit kein asynchroner Callback
+// mitten in Display-Zeichnungen auf den MAX7219 eingreift.
 // ============================================================
-static bool   g_pwmOn = false;  // true = Dunkelphase aktiv
-static Ticker g_pwmTicker;
+static bool   g_pwmDark = false;
+static uint32_t g_pwmNextMs = 0;
 
-static void pwmTick();  // Vorwärtsdeklaration
-
-static void pwmSchedule() {
-  uint32_t nextMs = g_pwmOn
-    ? (uint32_t)cfg.pwm_duty * 2        // Dunkelphasendauer
-    : 20 - (uint32_t)cfg.pwm_duty * 2;  // Hellphasendauer
-  g_pwmTicker.once_ms(nextMs, pwmTick);
-}
-
-static void pwmTick() {
-  g_pwmOn = !g_pwmOn;
-  mx.control(MD_MAX72XX::SHUTDOWN, g_pwmOn ? MD_MAX72XX::ON : MD_MAX72XX::OFF);
-  pwmSchedule();
-}
-
-static void pwmStart() {
-  g_pwmTicker.detach();
-  if (cfg.pwm_duty >= 10) return;
-  g_pwmOn = false;  // mit Hellphase starten
-  pwmSchedule();
+static inline void pwmApply(bool dark) {
+  g_pwmDark = dark;
+  mx.control(MD_MAX72XX::SHUTDOWN, dark ? MD_MAX72XX::ON : MD_MAX72XX::OFF);
 }
 
 static void pwmStop() {
-  g_pwmTicker.detach();
-  if (g_pwmOn) {
-    g_pwmOn = false;
-    mx.control(MD_MAX72XX::SHUTDOWN, MD_MAX72XX::OFF);  // Display AN
+  g_pwmNextMs = 0;
+  pwmApply(false);  // Display an
+}
+
+static void pwmStart() {
+  if (cfg.pwm_duty >= 10) {
+    pwmStop();
+    return;
+  }
+  pwmApply(false);  // mit Hellphase starten
+  g_pwmNextMs = millis() + (20 - (uint32_t)cfg.pwm_duty * 2);
+}
+
+static void pwmService() {
+  if (cfg.pwm_duty >= 10 || !g_pwmNextMs) return;
+
+  uint32_t now = millis();
+  while ((int32_t)(now - g_pwmNextMs) >= 0) {
+    if (g_pwmDark) {
+      pwmApply(false);
+      g_pwmNextMs += 20 - (uint32_t)cfg.pwm_duty * 2;
+    } else {
+      pwmApply(true);
+      g_pwmNextMs += (uint32_t)cfg.pwm_duty * 2;
+    }
   }
 }
 
@@ -697,7 +700,7 @@ static void setupOTA() {
     ArduinoOTA.setPassword(cfg.ota_password.c_str());
 
   ArduinoOTA.onStart([]() {
-    pwmStop();  // Ticker anhalten, Display einschalten
+    pwmStop();  // Dimmen anhalten, Display einschalten
     drawTopCentered(F("OTA"));
     drawBottomText5x7Centered(F("UPDATE"));
   });
@@ -1017,7 +1020,7 @@ void loop() {
   char* lastDate = lastDispDate;
   static uint32_t lastMs   = 0;
 
-  if (millis() - lastMs < 50) { delay(0); return; }
+  if (millis() - lastMs < 50) { pwmService(); delay(0); return; }
   lastMs = millis();
 
   char t[9], d[11];
@@ -1045,4 +1048,5 @@ void loop() {
 
   if (strcmp(t, lastTime) != 0) { strcpy(lastTime, t); drawTimeHHMMSS(t); }
   if (strcmp(d, lastDate) != 0) { strcpy(lastDate, d); drawBottomText5x7Centered(String(d)); }
+  pwmService();
 }
