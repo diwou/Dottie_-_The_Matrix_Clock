@@ -1,6 +1,6 @@
 # Dottie – The Matrix Clock
 
-Eine Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MAX7219-LED-Matrix-Modulen, DS3231-RTC und VEML7700-Lichtsensor. Die Uhr zeigt Zeit und Datum mit Scroll-Animation, regelt die Helligkeit automatisch nach Umgebungslicht, synchronisiert die hochgenaue RTC per NTP und bietet eine Weboberfläche für Konfiguration, Diagnose und manuelle RTC-Einstellung.
+Eine Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MAX7219-LED-Matrix-Modulen, DS3231-RTC mit CR2032-Pufferung und VEML7700-Lichtsensor. Die Uhr zeigt Zeit und Datum mit Scroll-Animation, regelt die Helligkeit automatisch nach Umgebungslicht, synchronisiert die hochgenaue RTC per NTP und bietet eine Weboberfläche für Konfiguration, Diagnose und manuelle RTC-Einstellung.
 
 - Aktuelle Version: `1.5.0` (Development-Builds zeigen zusätzlich den Codeberg-Kurz-Hash)
 - Repository: `https://codeberg.org/diwou/Dottie_-_The_Matrix_Clock`
@@ -29,7 +29,7 @@ Eine Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MA
 | Display | 16× MAX7219 LED-Matrix-Module (FC16_HW) |
 | Display-Pins | DIN = GPIO11, CLK = GPIO12, CS/LOAD = GPIO10 |
 | I2C | SDA = GPIO38, SCL = GPIO39 für VEML7700 und DS3231S |
-| RTC | DS3231S als Laufzeit-Uhr, NTP schreibt Korrekturen zurück in die RTC |
+| RTC | DS3231S als Laufzeit-Uhr, CR2032-batteriegepuffert, NTP schreibt Korrekturen zurück in die RTC |
 | Anordnung | 2 Reihen: TOP (8 Module, 8×8 px) + BOTTOM (8 Module, 5×7 px) |
 | Reset-Button | GPIO9 gegen GND, 5 Sekunden halten |
 
