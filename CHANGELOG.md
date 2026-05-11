@@ -27,7 +27,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - `NtpLogEntry` von `String` auf `char[]`-Buffer umgestellt – reduziert Heap-Fragmentierung im NTP-Log-Ringpuffer. (Ref: ea26b7a)
 
 ### Behoben
-- Wenn beim Start noch keine gueltige Zeit vorliegt, versucht die Firmware NTP jetzt deutlich schneller erneut statt lange auf dem "NO NTP"-Stand zu bleiben. (Ref: board-2026-05-11-ntp-retry)
+- Wenn beim Start noch keine gueltige Zeit vorliegt, versucht die Firmware NTP erneut, aber erst wenn DNS im WLAN bereit ist, damit kein fruehes "DNS fehlgeschlagen" entsteht. (Ref: board-2026-05-11-ntp-retry)
 - Software-PWM wird jetzt in der Hauptschleife getaktet statt per asynchronem Ticker; das verhindert korrupt gezeichnete Ziffern und reduziert Flackern beim Sekundenwechsel. (Ref: board-2026-05-11-pwm-loop)
 - I2C-Diagnose zeigt jetzt zusätzlich den DS3231-Pfad an, damit ein einzelnes VEML-NACK nicht den Eindruck erweckt, der ganze Bus wäre tot. (Ref: board-2026-05-10-i2c-scan)
 - OTA startet jetzt auch im AP-Modus, und das OTA-Target zeigt per Default auf `dottie.local` statt auf eine harte LAN-IP. (Ref: board-2026-05-10-ota-target)

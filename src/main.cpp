@@ -265,6 +265,10 @@ static uint32_t nextSyncInSec() {
   return (el >= intervalMs) ? 0 : (intervalMs - el) / 1000UL;
 }
 
+static bool dnsReadyForNtp() {
+  return WiFi.status() == WL_CONNECTED && WiFi.dnsIP(0) != (IPAddress)0U;
+}
+
 // ============================================================
 // lwIP DNS-Auflösung (zuverlässig, für Diagnose)
 // ============================================================
@@ -986,7 +990,7 @@ void loop() {
   }
 
   // Solange noch keine gueltige Zeit da ist, deutlich schneller neu versuchen.
-  if (WiFi.status() == WL_CONNECTED && time(nullptr) < 1700000000UL) {
+  if (time(nullptr) < 1700000000UL && dnsReadyForNtp()) {
     static uint32_t lastInvalidNtpMs = 0;
     if (!lastInvalidNtpMs || millis() - lastInvalidNtpMs > 10000UL) {
       lastInvalidNtpMs = millis();
