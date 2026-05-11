@@ -26,7 +26,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - KiCad-Projektspiegel mit `source/`, `fab/rev0.4/` und Stücklisten-/Fertigungsdaten in die Repository-Doku aufgenommen. (Ref: board-2026-05-11-kicad-mirror)
 - README um die aktuelle Funktionsbeschreibung mit DS3231-RTC, CR2032-Pufferung, VEML7700-Lichtsensor, RTC-Tab und NTP-Korrektur erweitert. (Ref: board-2026-05-11-readme)
 - README um den direkten Verweis auf den Firmware-Installer im `System`-Tab und die exportierten Firmware-Artefakte ergänzt. (Ref: board-2026-05-11-readme-installer)
-- README um einen direkten Link auf die Web-UI mit Firmware-Installer unter `http://dottie.local/` erweitert. (Ref: board-2026-05-11-readme-web-updater)
+- README um einen direkten Link auf die Web-UI mit Firmware-Installer unter `http://dottie.local/` im lokalen Netz erweitert. (Ref: board-2026-05-11-readme-web-updater)
 - Build exportiert jetzt automatisch `Firmware/<version>/` und `Firmware/latest/` mit Manifest und Flash-Binaries für den Firmware-Installer. (Ref: board-2026-05-11-firmware-export)
 - Projektregeln, Release-Dokumentation und `.gitignore` auf dieses Repository abgestimmt; `AGENTS.md` ist nicht mehr ignoriert und kann versioniert werden. (Ref: review-2026-04-28-regeln)
 - Versionsquelle auf `APP_VERSION_BASE` in `src/config.h` umgestellt und Build-Erzeugung von `include/version_generated.h` mit Codeberg-Kurz-Hash ergänzt. (Ref: review-2026-04-28-version)
