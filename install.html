@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dottie - The Matrix Clock Installer</title>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <style>
+    :root {
+      --bg: #0e1117;
+      --panel: #151a22;
+      --ink: #e6edf3;
+      --muted: #9aa4b2;
+      --line: #273244;
+      --accent: #5aa9ff;
+      --accent-dark: #2d74d7;
+      --ok: #2f9e59;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Noto Sans", "Helvetica Neue", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(90, 169, 255, 0.10) 0, transparent 26rem),
+        linear-gradient(180deg, #111720 0%, var(--bg) 50%, #0c0f15 100%);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    .card {
+      background: color-mix(in srgb, var(--panel) 92%, black);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+    }
+
+    .hero {
+      padding: 28px 28px 18px;
+      background:
+        linear-gradient(135deg, rgba(90, 169, 255, 0.14), rgba(45, 116, 215, 0.04)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-image {
+      width: 100%;
+      max-height: 320px;
+      object-fit: cover;
+      display: block;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.55;
+      max-width: 58ch;
+    }
+
+    .body {
+      padding: 24px 28px 28px;
+      display: grid;
+      gap: 22px;
+    }
+
+    .install-box {
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .hint, li, p {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .hint strong, li strong, p strong {
+      color: var(--ink);
+    }
+
+    ol {
+      margin: 0;
+      padding-left: 20px;
+      display: grid;
+      gap: 10px;
+    }
+
+    code {
+      background: rgba(230, 237, 243, 0.08);
+      padding: 0.15rem 0.35rem;
+      border-radius: 6px;
+      font-family: "Cascadia Code", "Fira Code", monospace;
+      font-size: 0.92em;
+    }
+
+    .footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 4px;
+      border-top: 1px dashed var(--line);
+    }
+
+    .link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .link:hover {
+      text-decoration: underline;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(47, 158, 89, 0.2);
+      background: rgba(47, 158, 89, 0.09);
+      color: var(--ok);
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+
+    @media (max-width: 640px) {
+      .hero, .body {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <img class="hero-image" src="images/Dottie%20%E2%80%93%20The%20Matrix%20Clock.jpg" alt="Dottie - The Matrix Clock">
+      <div class="hero">
+        <h1>Dottie - The Matrix Clock</h1>
+        <p class="lead">
+          Firmware direkt im Browser per USB auf einen ESP32-S3 flashen.
+          Fuer bereits laufende Geraete bleibt das Webinterface fuer Konfiguration und Firmware-Upload erhalten.
+        </p>
+      </div>
+
+      <div class="body">
+        <div class="install-box">
+          <div class="badge">Empfohlen: Chrome oder Edge mit USB-Datenkabel</div>
+          <esp-web-install-button manifest="Firmware/latest/manifest.json"></esp-web-install-button>
+          <p class="hint">
+            Falls der Button keinen Port findet: anderes USB-Kabel probieren und sicherstellen,
+            dass es ein <strong>Datenkabel</strong> ist, nicht nur ein Ladekabel.
+          </p>
+        </div>
+
+        <div>
+          <h2>So geht's</h2>
+          <ol>
+            <li>ESP32-S3 per USB anschliessen.</li>
+            <li>Auf <strong>Connect</strong> klicken und den seriellen Port auswaehlen.</li>
+            <li>Bei einem neuen Geraet die vorgeschlagene Loeschung bestaetigen.</li>
+            <li>Warten, bis das Flashen abgeschlossen ist.</li>
+            <li>Danach das Geraet neu starten oder kurz neu einstecken.</li>
+          </ol>
+        </div>
+
+        <div>
+          <h2>Hinweise</h2>
+          <p>
+            Diese Seite verwendet <strong>ESP Web Tools</strong> und das automatisch erzeugte Manifest
+            unter <code>Firmware/latest/manifest.json</code>. Damit wird immer der zuletzt gebaute
+            Firmware-Stand verwendet.
+          </p>
+          <p>
+            Wenn das Geraet bereits laeuft, ist das Webinterface meist der schnellere Weg als ein erneutes
+            USB-Flashen.
+          </p>
+        </div>
+
+        <div class="footer">
+          <a class="link" href="./Firmware/latest/manifest.json">Manifest ansehen</a>
+          <a class="link" href="./README.md">Projekt-README</a>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
