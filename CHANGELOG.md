@@ -20,6 +20,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - Eigener `RTC`-Reiter im Webinterface ergänzt, mit Status, manueller Datum-/Zeiteingabe und I2C-Diagnose für den DS3231-Pfad. (Ref: board-2026-05-11-rtc-tab)
 
 ### Geändert
+- KiCad-Projektspiegel mit `source/`, `fab/rev0.4/` und Stücklisten-/Fertigungsdaten in die Repository-Doku aufgenommen. (Ref: board-2026-05-11-kicad-mirror)
 - README um die aktuelle Funktionsbeschreibung mit DS3231-RTC, CR2032-Pufferung, VEML7700-Lichtsensor, RTC-Tab und NTP-Korrektur erweitert. (Ref: board-2026-05-11-readme)
 - Projektregeln, Release-Dokumentation und `.gitignore` auf dieses Repository abgestimmt; `AGENTS.md` ist nicht mehr ignoriert und kann versioniert werden. (Ref: review-2026-04-28-regeln)
 - Versionsquelle auf `APP_VERSION_BASE` in `src/config.h` umgestellt und Build-Erzeugung von `include/version_generated.h` mit Codeberg-Kurz-Hash ergänzt. (Ref: review-2026-04-28-version)

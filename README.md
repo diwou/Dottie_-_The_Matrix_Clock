@@ -33,6 +33,17 @@ Eine Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MA
 | Anordnung | 2 Reihen: TOP (8 Module, 8×8 px) + BOTTOM (8 Module, 5×7 px) |
 | Reset-Button | GPIO9 gegen GND, 5 Sekunden halten |
 
+## KiCad
+
+Der KiCad-Projektspiegel liegt unter [kicad/README.md](kicad/README.md).
+
+| Pfad | Inhalt |
+|---|---|
+| `kicad/source/` | KiCad-Quellen des Boards |
+| `kicad/fab/rev0.4/` | Fertigungsdaten für die aktuelle Hardwarefreigabe `0.4` |
+
+Die vollständige Stückliste liegt in `kicad/fab/rev0.4/bom.csv`, die zugehörigen Bestückungsdaten in `positions.csv` und die Freigabe als Paket in `Dottie_-_The_Matrix_Clock_0.4.zip`.
+
 ### Verdrahtung
 
 ```
