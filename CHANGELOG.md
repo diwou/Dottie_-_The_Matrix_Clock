@@ -14,6 +14,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - Projektbild aus `images/Dottie – The Matrix Clock.jpg` in die README und die öffentliche Installer-Seite eingebunden. (Ref: board-2026-05-11-project-image)
 - Öffentliche Codeberg-Pages-Seite für den Browser-Installer angelegt, analog zum HUB75-Projekt. (Ref: board-2026-05-11-pages-installer)
 - Web-UI um einen umschaltbaren Light-/Dark-Mode ergänzt und als Konfigurationsoption gespeichert. (Ref: board-2026-05-11-dark-mode)
+- Die Uhr oben rechts bleibt im Web-UI unabhängig vom Theme im bisherigen dunklen Stil. (Ref: board-2026-05-11-dark-mode-clock)
 
 ## [1.5.0] - 2026-05-11
 
