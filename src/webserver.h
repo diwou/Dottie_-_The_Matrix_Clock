@@ -223,6 +223,8 @@ static void handleRoot() {
           "if(sa)sa.textContent=d.auto_brightness?'aktiv':'aus';"
           "var ss=document.getElementById('v-sensor');"
           "if(ss)ss.textContent=d.sensor_msg|| (d.sensor_ok?'OK':'nicht gefunden');"
+          "var ts=document.getElementById('v-source');"
+          "if(ts)ts.textContent=d.time_source||'keine';"
           "espLocalSec=d.localsec||0;espFetchMs=Date.now();"
           "var c2=document.getElementById('dm_date');"
           "if(c2)dF5(c2,d.date,3.2,1.1,'#CC6A00','#130d03','#AA5000');"
@@ -324,6 +326,11 @@ static void handleRoot() {
     strftime(buf, sizeof(buf), "%d.%m.%Y %H:%M:%S", &tm_s);
     chunk(String(F("<div class='stat'>🕐 <b>Letzter NTP-Sync:</b> ")) + buf + F("</div>"));
   }
+  chunk(String(F("<div class='stat'>⏱ <b>Zeitquelle:</b> <span id='v-source'>")) +
+        htmlEscape(timeSource) +
+        F("</span>") +
+        (timeSourceDetail.length() ? String(F(" &nbsp; <b>Info:</b> ")) + htmlEscape(timeSourceDetail) : String("")) +
+        F("</div>"));
 
   // NTP-Log
   if (ntpLogCount > 0) {
@@ -770,7 +777,11 @@ static void runPendingNtpTest() {
     probeDetail = F("DNS fehlgeschlagen");
   }
 
-  if (ok && txSec) syncSystemTimeFromNtp(txSec);
+  if (ok && txSec) {
+    syncSystemTimeFromNtp(txSec);
+    rtcSetTimeFromEpoch((time_t)(txSec - 2208988800UL));
+    setTimeSource(F("NTP aktiv"), host);
+  }
 
   lastTestHost   = host;
   lastTestResult = ok ? F("OK") : F("FAIL");
@@ -838,6 +849,9 @@ static void handleApiStatus() {
   json += String(F("\"auto_brightness\":")) + (cfg.auto_brightness ? F("true") : F("false")) + F(",");
   json += String(F("\"sensor_ok\":")) + (vemlOk ? F("true") : F("false")) + F(",");
   json += String(F("\"sensor_msg\":\"")) + jsonEscape(vemlDiag) + F("\",");
+  json += String(F("\"rtc_ok\":")) + (ds3231TimeValid ? F("true") : F("false")) + F(",");
+  json += String(F("\"time_source\":\"")) + jsonEscape(timeSource) + F("\",");
+  json += String(F("\"time_source_detail\":\"")) + jsonEscape(timeSourceDetail) + F("\",");
   json += String(F("\"nextsync\":")) + nextSyncInSec() + F(",");
   json += String(F("\"heap\":")) + ESP.getFreeHeap() + F(",");
   json += String(F("\"rssi\":")) + (WiFi.status()==WL_CONNECTED ? WiFi.RSSI() : 0);

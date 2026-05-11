@@ -67,6 +67,10 @@ static uint32_t bootMs          = 0;
 static bool     vemlOk          = false;
 static String   vemlDiag        = F("nicht gefunden");
 static String   i2cDiag         = F("nicht gefunden");
+static bool     ds3231Present   = false;
+static bool     ds3231TimeValid = false;
+static String   timeSource      = F("keine");
+static String   timeSourceDetail = F("");
 static unsigned long lastLuxMs  = 0;
 static unsigned long luxWarmupUntilMs = 0;
 static unsigned long vemlRetryAtMs = 0;
@@ -168,6 +172,92 @@ static void updateBrightnessFromLux(bool force = false) {
   applyBrightness(luxToBrightness(luxHold));
 }
 
+static inline uint8_t binToBcd(uint8_t v) {
+  return (uint8_t)(((v / 10) << 4) | (v % 10));
+}
+
+static inline uint8_t bcdToBin(uint8_t v) {
+  return (uint8_t)(((v >> 4) * 10) + (v & 0x0F));
+}
+
+static bool isLeapYear(int year) {
+  return ((year % 4) == 0 && (year % 100) != 0) || ((year % 400) == 0);
+}
+
+static int daysInMonth(int year, int month) {
+  static const int days[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+  if (month < 1 || month > 12) return 0;
+  if (month == 2) return days[1] + (isLeapYear(year) ? 1 : 0);
+  return days[month - 1];
+}
+
+static int64_t daysFromCivilUTC(int year, unsigned month, unsigned day) {
+  year -= month <= 2;
+  const int era = (year >= 0 ? year : year - 399) / 400;
+  const unsigned yoe = (unsigned)(year - era * 400);
+  const unsigned doy = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1;
+  const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return (int64_t)era * 146097 + (int64_t)doe - 719468;
+}
+
+static bool rtcEpochToTime(time_t& epochOut) {
+  uint8_t raw[7];
+  Wire.beginTransmission(0x68);
+  Wire.write((uint8_t)0x00);
+  if (Wire.endTransmission(false) != 0) return false;
+  if (Wire.requestFrom((uint8_t)0x68, (uint8_t)7, (uint8_t)true) != 7) return false;
+  for (uint8_t i = 0; i < 7; i++) raw[i] = Wire.read();
+
+  int sec = bcdToBin(raw[0] & 0x7F);
+  int min = bcdToBin(raw[1] & 0x7F);
+  int hour = 0;
+  if (raw[2] & 0x40) {
+    int hr12 = bcdToBin(raw[2] & 0x1F) % 12;
+    hour = hr12 + ((raw[2] & 0x20) ? 12 : 0);
+  } else {
+    hour = bcdToBin(raw[2] & 0x3F);
+  }
+  int day = bcdToBin(raw[4] & 0x3F);
+  int month = bcdToBin(raw[5] & 0x1F);
+  int year = 2000 + bcdToBin(raw[6]);
+  if (raw[5] & 0x80) year += 100;
+
+  if (sec < 0 || sec > 59 || min < 0 || min > 59 || hour < 0 || hour > 23)
+    return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > daysInMonth(year, month)) return false;
+  if (year < 2000 || year > 2199) return false;
+
+  epochOut = (time_t)(daysFromCivilUTC(year, (unsigned)month, (unsigned)day) * 86400LL
+                      + hour * 3600L + min * 60L + sec);
+  return epochOut >= 1700000000UL;
+}
+
+static bool rtcSetTimeFromEpoch(time_t epoch) {
+  struct tm tmUtc {};
+  gmtime_r(&epoch, &tmUtc);
+
+  uint8_t buf[8] = {
+    0x00,
+    binToBcd((uint8_t)tmUtc.tm_sec),
+    binToBcd((uint8_t)tmUtc.tm_min),
+    binToBcd((uint8_t)tmUtc.tm_hour),
+    (uint8_t)(tmUtc.tm_wday == 0 ? 1 : tmUtc.tm_wday),
+    binToBcd((uint8_t)tmUtc.tm_mday),
+    (uint8_t)(binToBcd((uint8_t)(tmUtc.tm_mon + 1)) & 0x1F),
+    binToBcd((uint8_t)((tmUtc.tm_year + 1900) % 100))
+  };
+
+  Wire.beginTransmission(0x68);
+  for (uint8_t i = 0; i < sizeof(buf); i++) Wire.write(buf[i]);
+  return Wire.endTransmission(true) == 0;
+}
+
+static void setTimeSource(const String& label, const String& detail = "") {
+  timeSource = label;
+  timeSourceDetail = detail;
+}
+
 static void setupLightSensor() {
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   Wire.setClock(100000);
@@ -180,6 +270,7 @@ static void setupLightSensor() {
   uint8_t dsProbe = 0;
   Wire.beginTransmission(0x68);
   dsProbe = Wire.endTransmission(true);
+  ds3231Present = (dsProbe == 0);
 
   i2cDiag = String(F("VEML=")) + probe + F(" @0x10, DS3231=") + dsProbe + F(" @0x68");
 
@@ -198,6 +289,34 @@ static void setupLightSensor() {
     vemlRetryCount++;
     vemlDiag = i2cDiag + F(" | VEML NACK");
   }
+}
+
+static bool setupRtcTime() {
+  if (!ds3231Present) {
+    ds3231TimeValid = false;
+    setTimeSource(F("keine"), F("DS3231 nicht gefunden"));
+    return false;
+  }
+
+  time_t rtcEpoch = 0;
+  if (!rtcEpochToTime(rtcEpoch)) {
+    ds3231TimeValid = false;
+    setTimeSource(F("keine"), F("DS3231 Zeit ungueltig"));
+    return false;
+  }
+
+  timeval tv {};
+  tv.tv_sec = rtcEpoch;
+  tv.tv_usec = 0;
+  if (settimeofday(&tv, nullptr) != 0) {
+    ds3231TimeValid = false;
+    setTimeSource(F("keine"), F("DS3231 settimeofday fehlgeschlagen"));
+    return false;
+  }
+
+  ds3231TimeValid = true;
+  setTimeSource(F("DS3231 aktiv"), F("RTC hat Zeit geliefert"));
+  return true;
 }
 
 static void retryLightSensorIfNeeded() {
@@ -560,9 +679,12 @@ static void applyTimeConfig(bool force) {
   String detail;
   uint32_t txSec = 0;
   ntpProbeOnce(best.length() ? best : cfg.ntp1, NTP_PROBE_TIMEOUT_MS, &detail, &txSec);
-  if (txSec && syncSystemTimeFromNtp(txSec)) lastSyncEpoch = time(nullptr);
+  if (txSec && syncSystemTimeFromNtp(txSec)) {
+    lastSyncEpoch = time(nullptr);
+    rtcSetTimeFromEpoch(lastSyncEpoch);
+    setTimeSource(F("NTP aktiv"), best.length() ? best : cfg.ntp1);
+  }
   ntpLogAdd(time(nullptr), best.length() ? best : cfg.ntp1, best.length() > 0, detail);
-  if (best.length() && time(nullptr) > 1700000000UL) lastSyncEpoch = time(nullptr);
 
   if (!force && best == activeNtp) return;
 
@@ -919,6 +1041,7 @@ void setup() {
     mx.clear();
   }
   setupLightSensor();
+  setupRtcTime();
   applyConfiguredBrightness();
   updateBrightnessFromLux(true);
   pwmStart();
@@ -1006,7 +1129,7 @@ void loop() {
   static bool hadValidTime = false;
   time_t nowt = time(nullptr);
   if (nowt > 1700000000UL) {
-    if (!hadValidTime && lastNtpProbeMs > 0) lastSyncEpoch = nowt;
+    if (!hadValidTime && lastNtpProbeMs > 0 && timeSource == F("NTP aktiv")) lastSyncEpoch = nowt;
     hadValidTime = true;
   } else {
     hadValidTime = false;
