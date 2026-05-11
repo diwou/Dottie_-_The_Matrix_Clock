@@ -24,7 +24,7 @@ Eine Dot-Matrix-Uhr auf Basis einer **ESP32-S3-WROOM-1-N16R8-Platine** mit 16 MA
 - **NTP-Synchronisation** mit 3 konfigurierbaren Fallback-Servern
 - **Zeitzone & DST**: UTC-Offset, EU/US/Custom-Sommerzeit
 - **Display**: 24h/12h-Modus, 5 Datumsformate, einstellbare Helligkeit, Scroll-Animation, Software-Dimmen und VEML7700-Autohelligkeit
-- **Web-UI**: Responsive HTML5-Oberfläche mit Live-Display-Vorschau, RTC-Tab, NTP-Status, Diagnose und Firmware-Installer
+- **Web-UI**: Responsive HTML5-Oberfläche mit Live-Display-Vorschau, RTC-Tab, NTP-Status, Diagnose, Firmware-Installer und umschaltbarem Light-/Dark-Mode
 - **OTA-/Firmware-Updates**: Kabellose Updates über `dottie.local` und Web-Upload von `.bin`-Firmwaredateien
 - **WiFi-Resilienz**: State-Machine mit exponentiellem Backoff, AP-Fallback (Captive Portal)
 - **Factory-Reset**: konfigurierbarer GPIO 5 Sekunden halten
@@ -131,7 +131,7 @@ pio device monitor
 | **RTC** | DS3231-Status, I2C-Diagnose, letzter NTP-Sync, manuelle Uhrzeit/Datum-Eingabe |
 | **Zeitzone** | UTC-Offset, DST-Modus (Aus/EU/US/Custom) |
 | **Display** | 24h/12h, Sekunden, Datumsformat, Helligkeit, Scroll-Effekt, VEML7700-Autohelligkeit |
-| **System** | OTA, Firmware-Installer, Chip-Info, Neustart, Factory-Reset, Diagnose |
+| **System** | OTA, Firmware-Installer, Dark-Mode, Chip-Info, Neustart, Factory-Reset, Diagnose |
 
 ### REST-API
 

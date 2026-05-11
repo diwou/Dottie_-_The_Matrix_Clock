@@ -69,6 +69,7 @@ struct Config {
   uint8_t  pwm_duty         = 10; // 1..10 (10 = kein PWM, 1 = 10% Einschaltzeit)
   bool     auto_brightness  = false;
   bool     scroll_enabled   = true; // Scroll-Effekt auf Ziffern
+  bool     dark_mode        = false;
 
   // OTA
   bool     ota_enabled   = true;
@@ -181,6 +182,7 @@ static bool loadConfig() {
     CFG_INT("pwm_duty",         pwm_duty,         uint8_t)
     CFG_BOOL("auto_brightness", auto_brightness)
     CFG_BOOL("scroll_enabled",  scroll_enabled)
+    CFG_BOOL("dark_mode",       dark_mode)
     CFG_BOOL("ota_enabled",  ota_enabled)
     CFG_STR("ota_password",  ota_password)
 
@@ -226,6 +228,7 @@ static bool saveConfig() {
   W("pwm_duty",         cfg.pwm_duty);
   W("auto_brightness",  cfg.auto_brightness ? "1" : "0");
   W("scroll_enabled",   cfg.scroll_enabled ? 1 : 0);
+  W("dark_mode",        cfg.dark_mode ? "1" : "0");
   W("ota_enabled",  cfg.ota_enabled ? "1" : "0");
   W("ota_password", cfg.ota_password);
   #undef W

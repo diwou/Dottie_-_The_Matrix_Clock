@@ -72,7 +72,8 @@ static void handleRoot() {
           "<meta name='viewport' content='width=device-width,initial-scale=1'>"
           "<title>Dottie - The Matrix Clock</title>"
           "<style>"
-          ":root{--c:#3b82f6;--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b}"
+          ":root{--c:#3b82f6;--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;--soft:#f8fafc;--tab:#e5e7eb;--shadow:rgba(15,23,42,.10)}"
+          "body.theme-dark{--c:#60a5fa;--bg:#11161d;--card:#1b222c;--border:#303a49;--text:#e8edf4;--muted:#a3afbf;--soft:#161d26;--tab:#2b3441;--shadow:rgba(0,0,0,.30)}"
           "body{font-family:system-ui,Arial,sans-serif;margin:0;background:var(--bg);color:var(--text)}"
           ".hdr{background:var(--c);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}"
           ".hdr h1{margin:0;font-size:1.2rem;flex:1}"
@@ -80,7 +81,7 @@ static void handleRoot() {
           ".badge{background:rgba(255,255,255,.2);border-radius:6px;padding:2px 8px;font-size:.8rem}"
           ".wrap{max-width:860px;margin:auto;padding:16px}"
           ".tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}"
-          ".tab{padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;background:var(--border);"
+          ".tab{padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;background:var(--tab);"
                "border:1px solid var(--border);border-bottom:none;font-size:.9rem}"
           ".tab.active{background:var(--card);border-color:var(--border);color:var(--c);font-weight:600}"
           ".panel{display:none;background:var(--card);border:1px solid var(--border);"
@@ -90,7 +91,7 @@ static void handleRoot() {
           ".row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}"
           "label{display:block;font-size:.85rem;font-weight:600;margin:10px 0 3px;color:var(--muted)}"
           "input,select{width:100%;padding:8px 10px;border:1px solid var(--border);"
-                       "border-radius:6px;font-size:.95rem;box-sizing:border-box}"
+                       "border-radius:6px;font-size:.95rem;box-sizing:border-box;background:var(--soft);color:var(--text)}"
           "input:focus,select:focus{outline:2px solid var(--c)}"
           "input:disabled{opacity:.45}"
           ".chk{display:flex;align-items:center;gap:8px;margin:10px 0}"
@@ -100,17 +101,17 @@ static void handleRoot() {
           "button:hover{filter:brightness(1.1)}"
           ".btn-danger{background:#ef4444}"
           ".btn-sec{background:var(--muted)}"
-          ".stat{background:var(--bg);border-radius:8px;padding:12px;margin:8px 0;font-size:.9rem}"
+          ".stat{background:var(--soft);border-radius:8px;padding:12px;margin:8px 0;font-size:.9rem}"
           ".stat b{color:var(--c)}"
           ".ok{color:#16a34a} .fail{color:#dc2626}"
-          ".mono{font-family:monospace;font-size:.82rem;white-space:pre-wrap;background:var(--bg);"
+          ".mono{font-family:monospace;font-size:.82rem;white-space:pre-wrap;background:var(--soft);"
                 "padding:10px;border-radius:6px;margin:6px 0}"
           ".hint{font-size:.8rem;color:var(--muted);margin-top:3px}"
           "h3{margin:0 0 12px;font-size:1rem;border-bottom:1px solid var(--border);padding-bottom:6px}"
           "@media(max-width:600px){.row2,.row3{grid-template-columns:1fr}}"
-          ".dm-panel{background:#0a0a0a;border:1px solid #1e1e2a;border-radius:10px;padding:10px 14px 8px;margin-left:auto;box-shadow:0 0 24px rgba(255,140,0,.08),inset 0 0 20px rgba(0,0,0,.6);}"
-          ".dm-lbl{font-size:8px;letter-spacing:2px;color:#2a2a3a;text-align:center;text-transform:uppercase;margin-bottom:5px;font-family:monospace;}"
-          ".dm-div{height:1px;background:linear-gradient(to right,transparent,#1a1a2a,transparent);margin:5px 0;}"
+          ".dm-panel{background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:10px 14px 8px;margin-left:auto;box-shadow:0 0 24px var(--shadow),inset 0 0 20px rgba(0,0,0,.06);}"
+          ".dm-lbl{font-size:8px;letter-spacing:2px;color:var(--muted);text-align:center;text-transform:uppercase;margin-bottom:5px;font-family:monospace;}"
+          ".dm-div{height:1px;background:linear-gradient(to right,transparent,var(--border),transparent);margin:5px 0;}"
           "</style>"
           "<script>"
           "function showTab(id){"
@@ -118,9 +119,13 @@ static void handleRoot() {
           "document.getElementById('t_'+id).classList.add('active');"
           "document.getElementById('p_'+id).classList.add('active');"
           "localStorage.setItem('tab',id);}"
+          "function updTheme(){"
+          "var cb=document.getElementById('dark_mode');"
+          "document.body.classList.toggle('theme-dark', !!(cb&&cb.checked));}"
           "window.onload=function(){"
           "var t=localStorage.getItem('tab')||'status';"
           "showTab(t);"
+          "updTheme();"
           "updDhcp();"
           "updDst();"
           "};"
@@ -321,7 +326,8 @@ static void handleRoot() {
           "d2.textContent=d.host+'\\n'+d.detail;})"
           ".catch(function(e){setTimeout(function(){pollNtpResult(i,tries+1);},500);});}"
           "</script>"
-          "</head><body>"));
+          ));
+  chunk(String(F("</head><body")) + (cfg.dark_mode ? F(" class='theme-dark'") : F("")) + F(">"));
 
   // ---- HEADER ----
   chunk(F("<div class='hdr'>"
@@ -617,6 +623,11 @@ static void handleRoot() {
                  "<input name='ota_password' type='password' value='")) + htmlEscape(cfg.ota_password) + F("'>"));
   chunk(F("<p class='hint'>OTA-Hostname: <b>dottie.local</b> — Änderungen gelten nach Neustart.</p>"));
 
+  chunk(F("<h3>Darstellung</h3>"));
+  chunk(String(F("<div class='chk'><input type='checkbox' id='dark_mode' name='dark_mode' value='1'")) +
+        checked(cfg.dark_mode) + F(" onchange='updTheme()'><label style='margin:0'>Dark Mode</label></div>"));
+  chunk(F("<p class='hint'>Dunkles Theme mit reduzierter Helligkeit f&uuml;r das Webinterface, passend zu typischen Desktop- und Browser-Dark-Themes.</p>"));
+
   chunk(F("<h3>Firmware-Installer</h3>"));
   chunk(String(F("<div class='stat'>"
                  "<b>Aktuelle Firmware:</b> <span id='v-fw'>")) + htmlEscape(FPSTR(FW_VERSION)) + F("</span><br>"
@@ -722,6 +733,7 @@ static void handleSave() {
   cfg.show_seconds = server.hasArg(F("show_seconds"));
   if (server.hasArg(F("date_fmt"))) cfg.date_fmt = (uint8_t)constrain(server.arg(F("date_fmt")).toInt(), 0, 4);
   cfg.scroll_enabled = server.hasArg(F("scroll_enabled"));
+  cfg.dark_mode = server.hasArg(F("dark_mode"));
   // Scroll-State und Display-Cache zurücksetzen
   for (uint8_t _i = 0; _i < 8; _i++) scrollState[_i] = {};
   scrollInitDone = false;
