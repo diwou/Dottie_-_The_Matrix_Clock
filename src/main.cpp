@@ -985,6 +985,15 @@ void loop() {
       applyTimeConfig(false);
   }
 
+  // Solange noch keine gueltige Zeit da ist, deutlich schneller neu versuchen.
+  if (WiFi.status() == WL_CONNECTED && time(nullptr) < 1700000000UL) {
+    static uint32_t lastInvalidNtpMs = 0;
+    if (!lastInvalidNtpMs || millis() - lastInvalidNtpMs > 10000UL) {
+      lastInvalidNtpMs = millis();
+      applyTimeConfig(true);
+    }
+  }
+
   // ⑥b Umgebungslicht -> Displayhelligkeit
   retryLightSensorIfNeeded();
   updateBrightnessFromLux();
