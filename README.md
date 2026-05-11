@@ -82,6 +82,9 @@ pio run -t upload -e dottie_esp32s3 --upload-port /dev/serial/by-id/usb-Espressi
 # Firmware-Build-Artefakte
 # `Firmware/<version>/` und `Firmware/latest/` werden beim Build automatisch erzeugt
 
+# Firmware-Installer im Webinterface
+# Im Web-UI unter `System` -> `Firmware-Installer` die `.bin` aus `Firmware/latest/` hochladen.
+
 # Serieller Monitor (USB-Fallback, 115200 Baud)
 pio device monitor
 ```
