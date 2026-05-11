@@ -56,7 +56,7 @@ static void handleRoot() {
   bool inAP = WiFi.getMode() & WIFI_AP;
   String lux_s = isfinite(luxHold) ? (String(luxHold, 1) + " lx") : String("-");
   String bl_s = String((int)displayIntensityApplied) + " / 15";
-  String sensor_s = vemlOk ? F("OK") : vemlDiag;
+  String sensor_s = vemlOk ? F("OK") : F("nicht gefunden");
   String auto_s = cfg.auto_brightness ? F("aktiv") : F("aus");
 
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
@@ -143,11 +143,6 @@ static void handleRoot() {
           "fetch('/rtcset',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})"
           ".then(function(r){return r.text().then(function(x){return {ok:r.ok,text:x};});})"
           ".then(function(r){if(!r.ok)throw new Error(r.text); if(msg)msg.textContent='RTC gesetzt'; pollStatus();})"
-          ".catch(function(e){if(msg)msg.textContent='RTC-Fehler: '+e;});}"
-          "function rtcCopySystem(){"
-          "var msg=document.getElementById('rtc_msg');"
-          "fetch('/rtcnow',{method:'POST'})"
-          ".then(function(r){if(!r.ok)throw new Error('HTTP '+r.status); if(msg)msg.textContent='Systemzeit in RTC übernommen'; pollStatus();})"
           ".catch(function(e){if(msg)msg.textContent='RTC-Fehler: '+e;});}"
           "var F8={"
           "'0':[0x3C,0x66,0x66,0x66,0x66,0x66,0x66,0x3C],"
@@ -251,12 +246,14 @@ static void handleRoot() {
           "if(rp)rp.textContent=d.rtc_present?'ja':'nein';"
           "var rv=document.getElementById('v-rtc-valid');"
           "if(rv)rv.textContent=d.rtc_ok?'ja':'nein';"
+          "var ri=document.getElementById('v-i2c');"
+          "if(ri)ri.textContent=d.i2c_diag||'-';"
           "var rd=document.getElementById('v-rtc-date');"
           "if(rd)rd.textContent=d.rtc_date||'-';"
           "var rt=document.getElementById('v-rtc-time');"
           "if(rt)rt.textContent=d.rtc_time||'-';"
-          "var rr=document.getElementById('v-rtc-delta');"
-          "if(rr)rr.textContent=(d.rtc_delta_sec!==undefined)?d.rtc_delta_sec+' s':'-';"
+          "var rl=document.getElementById('v-rtc-last-sync');"
+          "if(rl)rl.textContent=d.last_ntp_sync||'-';"
           "var rdi=document.getElementById('rtc_date');"
           "if(rdi&&(!rdi.value||rdi.value===''))rdi.value=d.rtc_date_iso||'';"
           "var rti=document.getElementById('rtc_time');"
@@ -469,13 +466,14 @@ static void handleRoot() {
   chunk(F("<div class='stat'>"
           "<b>RTC vorhanden:</b> <span id='v-rtc-present'>-</span><br>"
           "<b>RTC gültig:</b> <span id='v-rtc-valid'>-</span><br>"
+          "<b>I2C:</b> <span id='v-i2c'>-</span><br>"
           "<b>Zeitquelle:</b> <span id='v-rtc-source'>-</span><br>"
           "<b>Info:</b> <span id='v-rtc-source-detail'>-</span>"
           "</div>"));
   chunk(F("<div class='stat'>"
           "<b>RTC-Datum:</b> <span id='v-rtc-date'>-</span><br>"
           "<b>RTC-Zeit:</b> <span id='v-rtc-time'>-</span><br>"
-          "<b>Delta zu System:</b> <span id='v-rtc-delta'>-</span>"
+          "<b>Letzter NTP-Sync:</b> <span id='v-rtc-last-sync'>-</span>"
           "</div>"));
   chunk(F("</div>"));
   chunk(F("<h3>Manuell setzen</h3>"));
@@ -486,8 +484,7 @@ static void handleRoot() {
   chunk(F("<p class='hint'>Eingabe in lokaler Zeit. Die Uhr wird direkt in die DS3231 geschrieben.</p>"));
   chunk(F("<div class='row3'>"));
   chunk(F("<div><button type='button' onclick='rtcSetNow()'>📝 RTC setzen</button></div>"));
-  chunk(F("<div><button type='button' onclick='rtcCopySystem()'>⏱ Systemzeit → RTC</button></div>"));
-  chunk(F("<div></div>"));
+  chunk(F("<div></div><div></div>"));
   chunk(F("</div>"));
   chunk(F("<div id='rtc_msg' class='hint' style='margin-top:8px'></div>"));
   chunk(F("</div>")); // panel rtc
@@ -771,26 +768,6 @@ static void handleRtcSet() {
   server.send(200, F("text/plain"), F("OK"));
 }
 
-static void handleRtcNow() {
-  if (!ds3231Present) {
-    server.send(409, F("text/plain"), F("DS3231 nicht gefunden"));
-    return;
-  }
-  time_t now = time(nullptr);
-  if (now < 1700000000UL) {
-    server.send(409, F("text/plain"), F("Systemzeit noch ungueltig"));
-    return;
-  }
-  if (!rtcSetTimeFromEpoch(now)) {
-    server.send(500, F("text/plain"), F("RTC konnte nicht beschrieben werden"));
-    return;
-  }
-  ds3231TimeValid = true;
-  lastRtcSyncMs = millis();
-  setTimeSource(F("DS3231 aktiv"), F("Systemzeit in RTC uebernommen"));
-  server.send(200, F("text/plain"), F("OK"));
-}
-
 // ============================================================
 // Web-Handler: Apply / Reboot / Factory
 // ============================================================
@@ -912,8 +889,9 @@ static void runPendingNtpTest() {
   }
 
   if (ok && txSec) {
-    syncSystemTimeFromNtp(txSec);
-    rtcSetTimeFromEpoch((time_t)(txSec - 2208988800UL));
+    time_t rtcEpoch = (time_t)(txSec - 2208988800UL);
+    rtcSetTimeFromEpoch(rtcEpoch);
+    lastSyncEpoch = rtcEpoch;
     setTimeSource(F("NTP aktiv"), host);
   }
 
@@ -923,7 +901,9 @@ static void runPendingNtpTest() {
   lastTestMs     = millis();
   testRunning    = false;
 
-  ntpLogAdd(time(nullptr), host, ok, lastTestDetail);
+  time_t logEpoch = 0;
+  if (!rtcEpochToTime(logEpoch)) logEpoch = lastSyncEpoch;
+  ntpLogAdd(logEpoch, host, ok, lastTestDetail);
 }
 
 // Dummy — wird nicht mehr aufgerufen, aber der Compiler braucht die Signatur
@@ -947,7 +927,7 @@ static void handleApiNtpTest() {
 }
 
 static void handleApiStatus() {
-  time_t now = time(nullptr);
+  time_t now = 0;
   time_t rtcNow = 0;
   char tbuf[20] = "--:--:--";
   char dbuf[14] = "--.--.----";
@@ -955,11 +935,11 @@ static void handleApiStatus() {
   char rtcDateIso[11] = "----.--.--";
   char rtcTime[20] = "--:--:--";
   char rtcTimeIso[9] = "--:--:--";
+  char lastSync[20] = "-";
   struct tm tm_l; memset(&tm_l, 0, sizeof(tm_l));
-  bool timeValid = (now > 1700000000UL);
+  bool timeValid = rtcEpochToTime(now);
   bool rtcPresent = ds3231Present;
   bool rtcValid = false;
-  long rtcDeltaSec = 0;
   if (timeValid) {
     localtime_r(&now, &tm_l);
     snprintf(tbuf, sizeof(tbuf), "%02d:%02d:%02d", tm_l.tm_hour, tm_l.tm_min, tm_l.tm_sec);
@@ -980,7 +960,13 @@ static void handleApiStatus() {
     snprintf(rtcTimeIso, sizeof(rtcTimeIso), "%02d:%02d:%02d",
              rtcTm.tm_hour, rtcTm.tm_min, rtcTm.tm_sec);
     rtcValid = true;
-    rtcDeltaSec = (long)(rtcNow - now);
+  }
+  if (lastSyncEpoch > 0) {
+    struct tm tm_s {};
+    localtime_r(&lastSyncEpoch, &tm_s);
+    snprintf(lastSync, sizeof(lastSync), "%02d.%02d.%04d %02d:%02d:%02d",
+             tm_s.tm_mday, tm_s.tm_mon + 1, tm_s.tm_year + 1900,
+             tm_s.tm_hour, tm_s.tm_min, tm_s.tm_sec);
   }
   // Uptime
   uint32_t s=(millis()-bootMs)/1000; uint32_t m=s/60; s%=60;
@@ -1004,14 +990,15 @@ static void handleApiStatus() {
   json += String(F("\"brightness\":")) + displayIntensityApplied + F(",");
   json += String(F("\"auto_brightness\":")) + (cfg.auto_brightness ? F("true") : F("false")) + F(",");
   json += String(F("\"sensor_ok\":")) + (vemlOk ? F("true") : F("false")) + F(",");
-  json += String(F("\"sensor_msg\":\"")) + jsonEscape(vemlDiag) + F("\",");
+  json += String(F("\"sensor_msg\":\"")) + jsonEscape(vemlOk ? F("OK") : F("nicht gefunden")) + F("\",");
+  json += String(F("\"i2c_diag\":\"")) + jsonEscape(i2cDiag) + F("\",");
   json += String(F("\"rtc_present\":")) + (rtcPresent ? F("true") : F("false")) + F(",");
   json += String(F("\"rtc_ok\":")) + (rtcValid ? F("true") : F("false")) + F(",");
   json += String(F("\"rtc_date\":\"")) + rtcDate + F("\",");
   json += String(F("\"rtc_time\":\"")) + rtcTime + F("\",");
   json += String(F("\"rtc_date_iso\":\"")) + rtcDateIso + F("\",");
   json += String(F("\"rtc_time_iso\":\"")) + rtcTimeIso + F("\",");
-  json += String(F("\"rtc_delta_sec\":")) + rtcDeltaSec + F(",");
+  json += String(F("\"last_ntp_sync\":\"")) + lastSync + F("\",");
   json += String(F("\"time_source\":\"")) + jsonEscape(timeSource) + F("\",");
   json += String(F("\"time_source_detail\":\"")) + jsonEscape(timeSourceDetail) + F("\",");
   json += String(F("\"nextsync\":")) + nextSyncInSec() + F(",");
@@ -1056,7 +1043,6 @@ static void setupWeb() {
   server.on(F("/reboot"),      HTTP_POST, handleReboot);
   server.on(F("/factory"),     HTTP_POST, handleFactory);
   server.on(F("/rtcset"),      HTTP_POST, handleRtcSet);
-  server.on(F("/rtcnow"),      HTTP_POST, handleRtcNow);
   server.on(F("/test"),        HTTP_POST, handleTest);
   server.on(F("/test"),        HTTP_GET,  handleTest);
   server.on(F("/api/status"),  HTTP_GET,  handleApiStatus);

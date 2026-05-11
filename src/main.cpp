@@ -256,14 +256,11 @@ static bool rtcSetTimeFromEpoch(time_t epoch) {
 
 static void setTimeSource(const String& label, const String& detail = "");
 static bool applySystemTimeEpoch(time_t epoch, bool writeRtc, const String& label, const String& detail) {
-  timeval tv {};
-  tv.tv_sec = epoch;
-  tv.tv_usec = 0;
-  if (settimeofday(&tv, nullptr) != 0) return false;
-
   if (writeRtc && ds3231Present && rtcSetTimeFromEpoch(epoch)) {
     ds3231TimeValid = true;
     lastRtcSyncMs = millis();
+  } else if (writeRtc && ds3231Present) {
+    return false;
   }
 
   setTimeSource(label, detail);
@@ -322,14 +319,9 @@ static bool setupRtcTime() {
     return false;
   }
 
-  if (!applySystemTimeEpoch(rtcEpoch, false, F("DS3231 aktiv"), F("RTC hat Zeit geliefert"))) {
-    ds3231TimeValid = false;
-    setTimeSource(F("keine"), F("DS3231 settimeofday fehlgeschlagen"));
-    return false;
-  }
-
   ds3231TimeValid = true;
   lastRtcSyncMs = millis();
+  setTimeSource(F("DS3231 aktiv"), F("RTC hat Zeit geliefert"));
   return true;
 }
 
@@ -345,16 +337,8 @@ static void refreshSystemTimeFromRtc(bool force = false) {
     setTimeSource(F("keine"), F("DS3231 Zeit nicht lesbar"));
     return;
   }
-
-  time_t sysEpoch = time(nullptr);
-  time_t delta = rtcEpoch - sysEpoch;
-  if (delta < 0) delta = -delta;
-
-  if (force || sysEpoch < 1700000000UL || delta >= 2) {
-    applySystemTimeEpoch(rtcEpoch, false, F("DS3231 aktiv"), F("RTC ist Zeitquelle"));
-  }
-
   lastRtcSyncMs = nowMs;
+  setTimeSource(F("DS3231 aktiv"), F("RTC ist Zeitquelle"));
 }
 
 static void retryLightSensorIfNeeded() {
@@ -538,15 +522,6 @@ static inline void formatDateDmy(char* out, uint8_t day, uint8_t month, uint16_t
 // ============================================================
 // NTP Probe
 // ============================================================
-static bool syncSystemTimeFromNtp(uint32_t txSec) {
-  if (txSec < 2208988800UL) return false;  // vor 1970
-
-  timeval tv {};
-  tv.tv_sec = (time_t)(txSec - 2208988800UL);
-  tv.tv_usec = 0;
-  return settimeofday(&tv, nullptr) == 0;
-}
-
 static bool ntpProbeOnce(const String& host, uint16_t timeoutMs, String* detail = nullptr, uint32_t* txSecOut = nullptr) {
   if (!host.length())                 { if(detail) *detail=F("EMPTY_HOST"); return false; }
   if (WiFi.status() != WL_CONNECTED) { if(detail) *detail=F("NO_WIFI");    return false; }
@@ -717,35 +692,22 @@ static void applyTimeConfig(bool force) {
   String detail;
   uint32_t txSec = 0;
   ntpProbeOnce(best.length() ? best : cfg.ntp1, NTP_PROBE_TIMEOUT_MS, &detail, &txSec);
-  if (txSec && syncSystemTimeFromNtp(txSec)) {
-    lastSyncEpoch = time(nullptr);
+  if (txSec) {
+    time_t rtcEpoch = (time_t)(txSec - 2208988800UL);
+    lastSyncEpoch = rtcEpoch;
     if (ds3231Present) {
       applySystemTimeEpoch(lastSyncEpoch, true, F("DS3231 aktiv"), F("RTC von NTP korrigiert"));
     } else {
       setTimeSource(F("NTP aktiv"), best.length() ? best : cfg.ntp1);
     }
   }
-  ntpLogAdd(time(nullptr), best.length() ? best : cfg.ntp1, best.length() > 0, detail);
-
-  if (!force && best == activeNtp) return;
+  ntpLogAdd(lastSyncEpoch, best.length() ? best : cfg.ntp1, best.length() > 0, detail);
 
   String tz = posixFromConfig();
   setenv("TZ", tz.c_str(), 1);
   tzset();
 
-  String s1 = best.length() ? best : cfg.ntp1;
-  String s2 = (s1 != cfg.ntp2) ? cfg.ntp2 : cfg.ntp3;
-  String s3 = (s1 != cfg.ntp3 && s2 != cfg.ntp3) ? cfg.ntp3 : "";
-
-  #if defined(ARDUINO_ARCH_ESP32)
-    configTzTime(tz.c_str(), s1.c_str(),
-                 s2.length() ? s2.c_str() : nullptr,
-                 s3.length() ? s3.c_str() : nullptr);
-  #else
-    configTime(tz.c_str(), s1.c_str(),
-               s2.length() ? s2.c_str() : nullptr,
-               s3.length() ? s3.c_str() : nullptr);
-  #endif
+  if (!force && best == activeNtp) return;
   activeNtp = best;
 }
 
@@ -897,8 +859,8 @@ static void setupOTA() {
 // Zeit-Strings
 // ============================================================
 static bool getLocalStrings(char timeStr[9], char dateStr[11]) {
-  time_t now = time(nullptr);
-  if (now < 1700000000UL) return false;
+  time_t now = 0;
+  if (!rtcEpochToTime(now)) return false;
   struct tm tmNow;
   localtime_r(&now, &tmNow);
 
@@ -1083,6 +1045,11 @@ void setup() {
   }
   setupLightSensor();
   setupRtcTime();
+  {
+    String tz = posixFromConfig();
+    setenv("TZ", tz.c_str(), 1);
+    tzset();
+  }
   applyConfiguredBrightness();
   updateBrightnessFromLux(true);
   pwmStart();
@@ -1153,8 +1120,8 @@ void loop() {
       applyTimeConfig(false);
   }
 
-  // Solange noch keine gueltige Zeit da ist, deutlich schneller neu versuchen.
-  if (time(nullptr) < 1700000000UL && dnsReadyForNtp()) {
+  // Solange die RTC noch keine gueltige Zeit liefert, deutlich schneller neu versuchen.
+  if (!ds3231TimeValid && dnsReadyForNtp()) {
     static uint32_t lastInvalidNtpMs = 0;
     if (!lastInvalidNtpMs || millis() - lastInvalidNtpMs > 10000UL) {
       lastInvalidNtpMs = millis();
@@ -1162,31 +1129,19 @@ void loop() {
     }
   }
 
-  // RTC als laufende Zeitbasis nachführen
+  // RTC-Zeitbasis verifizieren
   refreshSystemTimeFromRtc();
 
   // ⑥b Umgebungslicht -> Displayhelligkeit
   retryLightSensorIfNeeded();
   updateBrightnessFromLux();
 
-  // ⑦ Ersten erfolgreichen SNTP-Zeitstand als Sync-Zeitstempel merken
-  static bool hadValidTime = false;
-  time_t nowt = time(nullptr);
-  if (nowt > 1700000000UL) {
-    if (!hadValidTime && lastNtpProbeMs > 0 && timeSource == F("NTP aktiv")) lastSyncEpoch = nowt;
-    hadValidTime = true;
-  } else {
-    hadValidTime = false;
-  }
-
   // ⑧a Scroll-Animation tick (~50 Hz während Transition)
   {
     static uint32_t lastScrollMs = 0;
     uint32_t now = millis();
     if (lastScrollMs == 0) {
-      // Erster Aufruf: Tick-Timer auf Sub-Sekunden-Raster ausrichten
-      struct timeval tv; gettimeofday(&tv, nullptr);
-      lastScrollMs = now - ((tv.tv_usec / 1000) % 20);
+      lastScrollMs = now;
     }
     if (now - lastScrollMs >= 20) {
       lastScrollMs += 20;   // kein Drift: exakter 20ms-Takt
