@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD022 MD024 MD032 -->
+
 # Changelog – Dottie – The Matrix Clock
 
 Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
