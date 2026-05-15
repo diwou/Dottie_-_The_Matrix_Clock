@@ -17,6 +17,9 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - Web-UI um einen umschaltbaren Light-/Dark-Mode ergänzt und als Konfigurationsoption gespeichert. (Ref: board-2026-05-11-dark-mode)
 - Die Uhr oben rechts bleibt im Web-UI unabhängig vom Theme im bisherigen dunklen Stil. (Ref: board-2026-05-11-dark-mode-clock)
 
+### Behoben
+- NTP-Zeitsynchronisation korrigiert: Subsekunden-Anteil der NTP-Transmit-Timestamp und halbe Round-Trip-Zeit werden jetzt ausgewertet und auf die nächste ganze Sekunde gerundet, bevor die RTC gesetzt wird. Behebt den ~1-Sekunden-Nachlauf der Uhrzeit. (3a7046e)
+
 ## [1.5.0] - 2026-05-11
 
 ### Neu
