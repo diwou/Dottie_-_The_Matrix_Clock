@@ -14,7 +14,6 @@
 #include <DNSServer.h>
 #include <WiFiUdp.h>
 #include <time.h>
-#include <sys/time.h>
 #include <math.h>
 #include <MD_MAX72xx.h>
 #include <SPI.h>
