@@ -80,6 +80,9 @@ static float    luxHold         = NAN;
 static float    luxCurrent      = NAN;
 static uint8_t  displayIntensityApplied = 255;
 
+// Flag fuer Scroll-State-Reset aus dem Web-Task (Race-Condition-Vermeidung)
+static volatile bool scrollInvalidate = false;
+
 // Letzter manueller Test (für Web-UI)
 static String   lastTestHost;
 static String   lastTestResult;
@@ -134,6 +137,7 @@ static uint8_t luxToBrightness(float lux) {
 }
 
 static void updateBrightnessFromLux(bool force = false) {
+  asm volatile("" ::: "memory");
   if (!vemlOk || !cfg.auto_brightness) {
     applyConfiguredBrightness();
     return;
@@ -1164,6 +1168,15 @@ void loop() {
   // ⑥b Umgebungslicht -> Displayhelligkeit
   retryLightSensorIfNeeded();
   updateBrightnessFromLux();
+
+  // Scroll-State-Reset aus Web-Task uebernehmen (Race-Condition-Vermeidung)
+  if (scrollInvalidate) {
+    scrollInvalidate = false;
+    for (uint8_t _i = 0; _i < 8; _i++) scrollState[_i] = {};
+    scrollInitDone = false;
+    lastDispTime[0] = 0;
+    lastDispDate[0] = 0;
+  }
 
   // ⑧a Scroll-Animation tick (~50 Hz während Transition)
   {

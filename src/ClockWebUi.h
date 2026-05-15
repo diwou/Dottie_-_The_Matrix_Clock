@@ -734,11 +734,10 @@ static void handleSave() {
   if (server.hasArg(F("date_fmt"))) cfg.date_fmt = (uint8_t)constrain(server.arg(F("date_fmt")).toInt(), 0, 4);
   cfg.scroll_enabled = server.hasArg(F("scroll_enabled"));
   cfg.dark_mode = server.hasArg(F("dark_mode"));
-  // Scroll-State und Display-Cache zurücksetzen
-  for (uint8_t _i = 0; _i < 8; _i++) scrollState[_i] = {};
-  scrollInitDone = false;
-  lastDispTime[0] = 0;
-  lastDispDate[0] = 0;
+  // Scroll-State-Reset an Main-Loop delegieren (Flag statt direktem Zugriff wg. Race-Condition)
+  scrollInvalidate = true;
+  // displayIntensityApplied invalidieren, damit der Main-Loop die Helligkeit neu anwendet
+  displayIntensityApplied = 255;
 
   cfg.ota_enabled  = server.hasArg(F("ota_enabled"));
   if (server.hasArg(F("ota_password"))) cfg.ota_password = arg("ota_password");
