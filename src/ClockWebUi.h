@@ -62,6 +62,7 @@ static void handleRoot() {
   String bl_s = String((int)displayIntensityApplied) + " / 15";
   String sensor_s = vemlOk ? F("OK") : F("nicht gefunden");
   String auto_s = cfg.auto_brightness ? F("aktiv") : F("aus");
+  int32_t rssi = (WiFi.status() == WL_CONNECTED) ? WiFi.RSSI() : 0;
 
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, F("text/html"), "");
@@ -371,7 +372,7 @@ static void handleRoot() {
     bool wifiOk = (WiFi.status() == WL_CONNECTED);
     chunk(String(F("<div class='stat'>📶 <b>SSID:</b> ")) + htmlEscape(cfg.sta_ssid)
         + F(" &nbsp; <b>IP:</b> ") + WiFi.localIP().toString()
-        + F(" &nbsp; <b>RSSI:</b> ") + WiFi.RSSI() + F(" dBm"
+        + F(" &nbsp; <b>RSSI:</b> ") + rssi + F(" dBm"
         " &nbsp; <b>Status:</b> <span class='") + (wifiOk ? F("ok'>✓ Verbunden") : F("fail'>✗ Getrennt")) + F("</span>"
         "</div>"));
     chunk(String(F("<div class='stat'>🌐 <b>DNS:</b> ")) + ipOrLabel(WiFi.dnsIP(0))
@@ -1069,6 +1070,7 @@ static void handleApiStatus() {
                            (unsigned long)h,
                            (unsigned long)m,
                            (unsigned long)s);
+  int32_t rssiJson = (WiFi.status() == WL_CONNECTED) ? WiFi.RSSI() : 0;
 
   String json = "{";
   json += String(F("\"time\":\"")) + tbuf + F("\",");
@@ -1097,7 +1099,7 @@ static void handleApiStatus() {
   json += String(F("\"time_source_detail\":\"")) + jsonEscape(timeSourceDetail) + F("\",");
   json += String(F("\"nextsync\":")) + nextSyncInSec() + F(",");
   json += String(F("\"heap\":")) + ESP.getFreeHeap() + F(",");
-  json += String(F("\"rssi\":")) + (WiFi.status()==WL_CONNECTED ? WiFi.RSSI() : 0);
+  json += String(F("\"rssi\":")) + rssiJson;
   json += "}";
 
   server.sendHeader(F("Cache-Control"), F("no-cache"));
