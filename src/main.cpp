@@ -853,7 +853,7 @@ static void setupOTA() {
   otaReady = true;
 }
 
-#include "webserver.h"
+#include "ClockWebUi.h"
 
 // ============================================================
 // Zeit-Strings

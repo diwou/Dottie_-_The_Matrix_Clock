@@ -190,7 +190,7 @@ Die Konfiguration wird als `Key=Value`-Datei auf LittleFS unter `/cfg.txt` gespe
 | `src/main.cpp` | Kernlogik: Boot, WiFi-State-Machine, NTP-Sync, OTA, Loop |
 | `src/config.h` | Config-Struct, LittleFS-Load/Save (`/cfg.txt`), Makro-Parser, `APP_VERSION_BASE` |
 | `src/display.h` | Bitmap-Glyphen (8×8 + 5×7), Scroll-Animation, Display-Mapping |
-| `src/webserver.h` | HTML5-WebUI (Tabs), REST-APIs, JavaScript-Glyphen-Renderer |
+| `src/ClockWebUi.h` | HTML5-WebUI (Tabs), REST-APIs, JavaScript-Glyphen-Renderer |
 | `platformio.ini` | Build-Konfiguration, Bibliotheksabhängigkeiten |
 
 ### WiFi-State-Machine
