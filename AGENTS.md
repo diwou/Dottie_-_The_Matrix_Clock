@@ -75,8 +75,9 @@ Dieses Projekt folgt inhaltlich SemVer:
 ## 4. CHANGELOG.md
 
 - Bei jeder inhaltlichen Code- oder Verhaltensänderung `CHANGELOG.md` mitpflegen.
-- Jeder nennenswerte Changelog-Punkt braucht zwingend eine Commit-/ID-Referenz am Ende des jeweiligen Eintrags.
-- Einträge ohne Referenz gelten als unvollständig.
+- Jeder nennenswerte Changelog-Punkt braucht zwingend die Git-Commit-ID (Kurz-Hash) als Referenz am Ende des jeweiligen Eintrags, z. B. `(a1b2c3d)`.
+- Andere Referenzformate wie Board-IDs oder Textmarken sind nicht ausreichend; es muss immer die Commit-ID des tatsächlichen Commits sein.
+- Einträge ohne Commit-ID-Referenz gelten als unvollständig.
 - Die Versionsblöcke im Changelog orientieren sich an den Tagesständen dieses Projekts.
 - Änderungen an sichtbaren Metadaten wie README oder Versionsanzeigen gehören ebenfalls in den Changelog.
 - Falls KiCad-Dateien zu diesem Projekt ergänzt werden, wird der Stand in
