@@ -20,7 +20,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 ### Behoben
 - NTP-Zeitsynchronisation korrigiert: Subsekunden-Anteil der NTP-Transmit-Timestamp und halbe Round-Trip-Zeit werden jetzt ausgewertet und auf die nächste ganze Sekunde gerundet, bevor die RTC gesetzt wird. Behebt den ~1-Sekunden-Nachlauf der Uhrzeit. (9d814a1)
 - Scroll-Effekt beim Ziffernwechsel korrigiert: Die fehlerhafte `gettimeofday()`-basierte Subsekunden-Kompensation entfernt, die auf dem ESP32 uninitialisierte Werte lieferte und die Animation auf einen einzigen Frame verkürzte. (4a89812)
-- NTP-Subsekunden-Genauigkeit verbessert: Vor dem RTC-Schreiben wird jetzt gezielt auf die nächste volle Sekundengrenze gewartet, damit die RTC exakt zur Sekundenmitte losläuft. Eliminiert den variablen Subsekunden-Versatz zwischen mehreren unabhängig synchronisierten Uhren. (27050c2)
+- NTP-Subsekunden-Genauigkeit verbessert: Vor dem RTC-Schreiben wird jetzt gezielt auf die nächste volle Sekundengrenze gewartet, damit die RTC exakt zur Sekundenmitte losläuft. Eliminiert den variablen Subsekunden-Versatz zwischen mehreren unabhängig synchronisierten Uhren. (00ac0d0)
 
 ## [1.5.0] - 2026-05-11
 
