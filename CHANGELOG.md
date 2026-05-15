@@ -19,6 +19,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - Die Uhr oben rechts bleibt im Web-UI unabhängig vom Theme im bisherigen dunklen Stil. (Ref: board-2026-05-11-dark-mode-clock)
 
 ### Behoben
+- Race-Condition auf dem ESP32 behoben: `updateBrightnessFromLux(true)` wurde aus `handleSave()` (Web-Task, Core 0) entfernt, da der Aufruf parallel zum Main-Loop (Core 1) auf den SPI-Bus und geteilte Variablen zugriff und dadurch Display-Artefakte sowie einen blockierten Helligkeitsregler verursachte. (56d90a4)
 - NTP-Zeitsynchronisation korrigiert: Subsekunden-Anteil der NTP-Transmit-Timestamp und halbe Round-Trip-Zeit werden jetzt ausgewertet und auf die nächste ganze Sekunde gerundet, bevor die RTC gesetzt wird. Behebt den ~1-Sekunden-Nachlauf der Uhrzeit. (9d814a1)
 - Scroll-Effekt beim Ziffernwechsel korrigiert: Die fehlerhafte `gettimeofday()`-basierte Subsekunden-Kompensation entfernt, die auf dem ESP32 uninitialisierte Werte lieferte und die Animation auf einen einzigen Frame verkürzte. (4a89812)
 - NTP-Subsekunden-Genauigkeit verbessert: Vor dem RTC-Schreiben wird jetzt gezielt auf die nächste volle Sekundengrenze gewartet, damit die RTC exakt zur Sekundenmitte losläuft. Eliminiert den variablen Subsekunden-Versatz zwischen mehreren unabhängig synchronisierten Uhren. (00ac0d0)
