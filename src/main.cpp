@@ -111,6 +111,11 @@ static inline void applyConfiguredBrightness() {
   applyBrightness(cfg.brightness);
 }
 
+static float brightnessFactorFromSlider() {
+  float slider = (float)cfg.brightness;
+  return 0.25f + (slider / 15.0f) * 1.5f;
+}
+
 static uint8_t luxToBrightness(float lux) {
   constexpr float LUX_MIN = 0.2f;
   constexpr float LUX_MAX = 235.0f;
@@ -169,7 +174,12 @@ static void updateBrightnessFromLux(bool force = false) {
     }
   }
 
-  applyBrightness(luxToBrightness(luxHold));
+  uint8_t autoBrightness = luxToBrightness(luxHold);
+  float factor = brightnessFactorFromSlider();
+  int adjusted = (int)lroundf((float)autoBrightness * factor);
+  if (adjusted < 1) adjusted = 1;
+  if (adjusted > 15) adjusted = 15;
+  applyBrightness((uint8_t)adjusted);
 }
 
 static inline uint8_t binToBcd(uint8_t v) {

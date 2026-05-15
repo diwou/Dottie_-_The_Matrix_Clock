@@ -591,7 +591,7 @@ static void handleRoot() {
   chunk(String(F("<div class='chk'><input type='checkbox' name='auto_brightness' value='1'")) +
         checked(cfg.auto_brightness) +
         F("><label>Helligkeit automatisch mit VEML7700 regeln</label></div>"));
-  chunk(F("<p class='hint'>Wenn aktiv, folgt die Display-Helligkeit dem Umgebungslicht. Der manuelle Wert bleibt als Fallback erhalten.</p>"));
+  chunk(F("<p class='hint'>Wenn aktiv, folgt die Display-Helligkeit dem Umgebungslicht. Der manuelle Regler wirkt dann relativ (Mitte = neutraler Wert). Bei deaktiviertem Sensor gilt der Regler absolut.</p>"));
   chunk(F("<h3>Software-Dimmen (PWM)</h3>"));
   chunk(String(F("<label>Abdunklungsst&auml;rke (1=10% … 5=50% Abdunklung)</label>"
                  "<input name='pwm_duty' type='range' min='1' max='5' value='")) +
