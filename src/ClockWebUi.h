@@ -740,7 +740,6 @@ static void handleSave() {
   lastDispTime[0] = 0;
   lastDispDate[0] = 0;
 
-  updateBrightnessFromLux(true);
   cfg.ota_enabled  = server.hasArg(F("ota_enabled"));
   if (server.hasArg(F("ota_password"))) cfg.ota_password = arg("ota_password");
 
