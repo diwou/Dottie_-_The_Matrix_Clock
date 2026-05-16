@@ -11,6 +11,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 ## [Unreleased]
 
 ### Geändert
+- `cspell` und `@cspell/dict-de-de` als lokale `devDependencies` in `package.json` ergänzt, damit die Rechtschreibprüfung nicht mehr nur per `npx`-Download läuft.
 - `src/webserver.h` in `src/ClockWebUi.h` umbenannt, um Namenskonflikte mit dem ESP32-Framework-Header `<WebServer.h>` unter Windows zu vermeiden. (9940fa1)
 - Helligkeitsregler im Web-UI wirkt jetzt dual: Bei deaktiviertem VEML7700 als absoluter Wert (0–15), bei aktiviertem Sensor als relativer Faktor auf die automatisch berechnete Helligkeit. (601cf6b)
 - Projektbild aus `images/Dottie – The Matrix Clock.jpg` in die README und die öffentliche Installer-Seite eingebunden. (Ref: board-2026-05-11-project-image)
@@ -42,7 +43,7 @@ Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0
 - README um den direkten Verweis auf den Firmware-Installer im `System`-Tab und die exportierten Firmware-Artefakte ergänzt. (Ref: board-2026-05-11-readme-installer)
 - README um einen direkten Link auf die Web-UI mit Firmware-Installer unter `http://dottie.local/` im lokalen Netz erweitert. (Ref: board-2026-05-11-readme-web-updater)
 - Build exportiert jetzt automatisch `Firmware/<version>/` und `Firmware/latest/` mit Manifest und Flash-Binaries für den Firmware-Installer. (Ref: board-2026-05-11-firmware-export)
-- Projektregeln, Release-Dokumentation und `.gitignore` auf dieses Repository abgestimmt; `AGENTS.md` ist nicht mehr ignoriert und kann versioniert werden. (Ref: review-2026-04-28-regeln)
+- Projektregeln, Release-Dokumentation und `.gitignore` auf dieses Repository abgestimmt. (Ref: review-2026-04-28-regeln)
 - Versionsquelle auf `APP_VERSION_BASE` in `src/config.h` umgestellt und Build-Erzeugung von `include/version_generated.h` mit Codeberg-Kurz-Hash ergänzt. (Ref: review-2026-04-28-version)
 - Reproduzierbarkeit des Builds verbessert: PlatformIO-Plattform und `MD_MAX72XX` sind fest gepinnt, lokale OTA-IP aus der Projektkonfiguration entfernt. (Ref: review-2026-04-28-build)
 - Projektspezifischen `npm run spell` mit `cspell`-Konfiguration ergänzt. (Ref: review-2026-04-28-spell)

@@ -17,6 +17,7 @@ compile_commands.json
 CLAUDE.md
 CLAUDE.md.*
 .claude/
+.kilo/
 AGENTS.md
 
 # Lokale Notizen / temporäre Dateien
