@@ -6,8 +6,8 @@
 	(paper "A3")
 	(title_block
 		(title "NTP Dot Matrix Clock 64x16")
-		(date "2026-04-18")
-		(rev "0.4")
+		(date "2026-06-04")
+		(rev "0.5")
 		(company "Dirk Wouters")
 	)
 	(lib_symbols
@@ -4806,6 +4806,12 @@
 		(uuid "29c8d9fd-dab7-4f23-96f1-3ee21caa1ea5")
 	)
 	(junction
+		(at 119.38 228.6)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2c6d726a-e8dc-4c16-a27b-d8a6e5a0385e")
+	)
+	(junction
 		(at 222.25 176.53)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -4936,6 +4942,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "e0f79360-d117-457e-b49b-6b19fdb00abe")
+	)
+	(junction
+		(at 101.6 223.52)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e8b32696-819a-4675-a947-4e952f0e095b")
 	)
 	(junction
 		(at 375.92 241.3)
@@ -5317,7 +5329,7 @@
 	)
 	(wire
 		(pts
-			(xy 113.03 223.52) (xy 109.22 223.52)
+			(xy 104.14 223.52) (xy 101.6 223.52)
 		)
 		(stroke
 			(width 0)
@@ -6237,6 +6249,16 @@
 	)
 	(wire
 		(pts
+			(xy 111.76 223.52) (xy 119.38 223.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "68b546af-ac77-4ae2-b054-0830fe4263f3")
+	)
+	(wire
+		(pts
 			(xy 245.11 59.69) (xy 248.92 59.69)
 		)
 		(stroke
@@ -6347,16 +6369,6 @@
 	)
 	(wire
 		(pts
-			(xy 113.03 219.71) (xy 113.03 223.52)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "719e604a-882a-4bea-bd8b-bdc1a6959503")
-	)
-	(wire
-		(pts
 			(xy 34.29 203.2) (xy 38.1 203.2)
 		)
 		(stroke
@@ -6404,6 +6416,16 @@
 			(type default)
 		)
 		(uuid "763c5e8d-7c1d-4f88-881f-55af0927b07f")
+	)
+	(wire
+		(pts
+			(xy 119.38 223.52) (xy 119.38 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "76ba323f-2c51-4c65-a5ba-0761a2dff68c")
 	)
 	(wire
 		(pts
@@ -7464,6 +7486,16 @@
 			(type default)
 		)
 		(uuid "d7b1cc32-bfc4-4f3a-9a6f-0d2173d09e02")
+	)
+	(wire
+		(pts
+			(xy 101.6 219.71) (xy 101.6 223.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d828b877-64df-4055-8cd8-9dbc6af6112e")
 	)
 	(wire
 		(pts
@@ -9826,84 +9858,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 113.03 219.71 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "40e95f25-7f47-47df-b161-375f7ee0d27f")
-		(property "Reference" "#PWR0105"
-			(at 113.03 223.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+5V"
-			(at 113.03 214.63 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 113.03 219.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 113.03 219.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 113.03 219.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "6505791c-4315-4827-9583-ce093975fc97")
-		)
-		(instances
-			(project "NTP Dot Matrix Clock 64x16"
-				(path "/c9a98ca1-3b01-42fc-a42a-485a316ecbfc"
-					(reference "#PWR0105")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "74xx:74HC245")
 		(at 238.76 179.07 0)
 		(unit 1)
@@ -10190,86 +10144,6 @@
 			(project "NTP Dot Matrix Clock 64x16"
 				(path "/c9a98ca1-3b01-42fc-a42a-485a316ecbfc"
 					(reference "#PWR0106")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Diode:SS14")
-		(at 105.41 223.52 180)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "4c1cc39d-c333-415d-b9c7-7a2c634c55ac")
-		(property "Reference" "D2"
-			(at 105.7275 217.17 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "SS14"
-			(at 105.7275 219.71 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_SMA"
-			(at 105.41 219.075 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://www.vishay.com/docs/88746/ss12.pdf"
-			(at 105.41 223.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "40V 1A Schottky Diode, SMA"
-			(at 105.41 223.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "50021c4f-1095-4cfa-b16b-8fe748e3b392")
-		)
-		(pin "1"
-			(uuid "7a0bdedc-9f36-4d76-8ff9-c41e66fdb121")
-		)
-		(instances
-			(project "NTP Dot Matrix Clock 64x16"
-				(path "/c9a98ca1-3b01-42fc-a42a-485a316ecbfc"
-					(reference "D2")
 					(unit 1)
 				)
 			)
@@ -12301,6 +12175,86 @@
 			(project "NTP Dot Matrix Clock 64x16"
 				(path "/c9a98ca1-3b01-42fc-a42a-485a316ecbfc"
 					(reference "#PWR0117")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Diode:SS14")
+		(at 107.95 223.52 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "a293e1aa-e5bf-4ba5-9e10-727adc50e33e")
+		(property "Reference" "D2"
+			(at 107.6325 217.17 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SS14"
+			(at 107.6325 219.71 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Diode_SMD:D_SMA"
+			(at 107.95 227.965 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.vishay.com/docs/88746/ss12.pdf"
+			(at 107.95 223.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "40V 1A Schottky Diode, SMA"
+			(at 107.95 223.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "006dd152-1e23-412f-af3a-bfcfcfa7a6fc")
+		)
+		(pin "1"
+			(uuid "d8b2a5bb-f17c-474f-9427-15e107e40337")
+		)
+		(instances
+			(project "NTP Dot Matrix Clock 64x16"
+				(path "/c9a98ca1-3b01-42fc-a42a-485a316ecbfc"
+					(reference "D2")
 					(unit 1)
 				)
 			)
@@ -14508,6 +14462,84 @@
 			(project "NTP Dot Matrix Clock 64x16"
 				(path "/c9a98ca1-3b01-42fc-a42a-485a316ecbfc"
 					(reference "R24")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 101.6 219.71 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "e1db4a64-6ccb-41d5-9ef4-96b484d1e49e")
+		(property "Reference" "#PWR0105"
+			(at 101.6 223.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+5V"
+			(at 101.6 214.63 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 101.6 219.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 101.6 219.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 101.6 219.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "51e9d226-a81f-4d12-a9cb-0acfd348996d")
+		)
+		(instances
+			(project "NTP Dot Matrix Clock 64x16"
+				(path "/c9a98ca1-3b01-42fc-a42a-485a316ecbfc"
+					(reference "#PWR0105")
 					(unit 1)
 				)
 			)
